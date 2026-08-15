@@ -1,0 +1,10 @@
+.git
+.github
+*_templ.go
+assets/css/output.css
+*.db
+*.db-*
+.env
+README.md
+PLAN.md
+CONTRIBUTING.md

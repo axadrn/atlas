@@ -1,0 +1,6 @@
+assets/css/output.css
+*_templ.go
+atlas
+*.db
+*.db-*
+.env

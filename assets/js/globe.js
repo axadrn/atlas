@@ -1,0 +1,300 @@
+// Landing page globe. Canvas 2D, zero dependencies.
+// Dotted continents from a rasterized landmask (landmask.js), nomad hubs as
+// markers, a few great circle arcs. Horizontal drag spins the globe 1:1,
+// vertical drag tilts a little and springs back, hover pauses the spin.
+(function () {
+  const canvas = document.getElementById("globe");
+  if (!canvas) return;
+  const caption = document.getElementById("globe-caption");
+  const ctx = canvas.getContext("2d");
+
+  const CITIES = [
+    ["Lisbon", 38.7, -9.1, "Yes, everyone is here."],
+    ["Madeira", 32.65, -16.9, "Digital nomad village, literally."],
+    ["Las Palmas", 28.1, -15.4, "Winter office of half of Europe."],
+    ["Barcelona", 41.4, 2.2, "Beach, laptop, pickpockets."],
+    ["Berlin", 52.5, 13.4, "Anmeldung not included."],
+    ["Prague", 50.1, 14.4, "Zivno visa says hi."],
+    ["Budapest", 47.5, 19.0, "Ruin bars and low flat tax."],
+    ["Warsaw", 52.2, 21.0, "The underrated one."],
+    ["Tallinn", 59.4, 24.8, "e-Residency was the trailer."],
+    ["Athens", 38.0, 23.7, "Half your rent, twice your sun."],
+    ["Istanbul", 41.0, 29.0, "Two continents, one breakfast."],
+    ["Tbilisi", 41.7, 44.8, "One year visa free. You read that right."],
+    ["Dubai", 25.2, 55.3, "Zero percent, forty degrees."],
+    ["Bangkok", 13.8, 100.5, "The eternal basecamp."],
+    ["Chiang Mai", 18.8, 99.0, "Where it all started."],
+    ["Da Nang", 16.05, 108.2, "Beach town with gigabit."],
+    ["Ho Chi Minh", 10.8, 106.7, "Coffee strong enough to ship."],
+    ["Singapore", 1.35, 103.8, "Layover that became a lifestyle."],
+    ["Kuala Lumpur", 3.15, 101.7, "Most underrated hub in Asia."],
+    ["Canggu", -8.65, 115.13, "Scooters, smoothie bowls, deadlines."],
+    ["Tokyo", 35.7, 139.7, "Expensive. Worth it."],
+    ["Seoul", 37.6, 127.0, "Fastest wifi you will ever waste."],
+    ["Taipei", 25.0, 121.5, "Gold card, bubble tea."],
+    ["Cape Town", -33.9, 18.4, "Loadshedding builds character."],
+    ["Marrakech", 31.6, -8.0, "Riad office goals."],
+    ["Buenos Aires", -34.6, -58.4, "Steak priced in a currency of mystery."],
+    ["Medellin", 6.2, -75.6, "Eternal spring, eternal coworking."],
+    ["Mexico City", 19.4, -99.1, "Tacos at every tax bracket."],
+    ["Playa del Carmen", 20.6, -87.1, "Cenotes between calls."],
+    ["Panama City", 9.0, -79.5, "Ask about territorial taxation."],
+    ["Asuncion", -25.3, -57.6, "The residency nerds know why."],
+    ["Austin", 30.3, -97.7, "No state income tax, y'all."],
+    ["Miami", 25.8, -80.2, "Where crypto twitter touches grass."],
+    ["New York", 40.7, -74.0, "Visited, invoiced, left."],
+    ["Auckland", -36.8, 174.8, "As far from your tax office as it gets."],
+    ["Sydney", -33.9, 151.2, "Timezone hard mode."],
+  ];
+
+  const D2R = Math.PI / 180;
+  function toVec(lat, lon) {
+    const la = lat * D2R, lo = lon * D2R;
+    return [Math.cos(la) * Math.cos(lo), Math.sin(la), Math.cos(la) * Math.sin(lo)];
+  }
+  const cityVecs = CITIES.map((c) => toVec(c[1], c[2]));
+
+  // Land dots: a fibonacci sphere sampled against the landmask, so the dots
+  // are evenly spaced with no visible latitude rows.
+  const landVecs = [];
+  const mask = window.ATLAS_LAND;
+  if (mask) {
+    const bit = (i) => (parseInt(mask.hex[i >> 2], 16) >> (i & 3)) & 1;
+    const isLand = (lat, lon) => {
+      const row = Math.min(mask.h - 1, Math.max(0, Math.floor((90 - lat) / mask.step)));
+      const col = Math.min(mask.w - 1, Math.max(0, Math.floor((lon + 180) / mask.step)));
+      return bit(row * mask.w + col);
+    };
+    const N = 22000;
+    const GA = Math.PI * (3 - Math.sqrt(5));
+    for (let i = 0; i < N; i++) {
+      const y = 1 - (2 * i + 1) / N;
+      const lat = Math.asin(y) / D2R;
+      if (Math.abs(lat) > 84) continue;
+      const lon = (((i * GA) / D2R) % 360) - 180;
+      if (isLand(lat, lon)) landVecs.push(toVec(lat, lon));
+    }
+  }
+
+  function slerp(a, b, t) {
+    let dot = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    dot = Math.min(1, Math.max(-1, dot));
+    const th = Math.acos(dot);
+    if (th < 1e-6) return a.slice();
+    const s = Math.sin(th);
+    const f1 = Math.sin((1 - t) * th) / s, f2 = Math.sin(t * th) / s;
+    return [a[0] * f1 + b[0] * f2, a[1] * f1 + b[1] * f2, a[2] * f1 + b[2] * f2];
+  }
+
+  function themeColor(name, fallback) {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  }
+  let colFg, colPrimary, colMuted;
+  function loadColors() {
+    colFg = themeColor("--foreground", "#111");
+    colPrimary = themeColor("--primary", "#111");
+    colMuted = themeColor("--muted-foreground", "#888");
+  }
+  loadColors();
+
+  let W = 0, H = 0, R = 0, CX = 0, CY = 0;
+  function resize() {
+    const parent = canvas.parentElement;
+    // Fit the available box so the one page hero never scrolls.
+    const size = Math.max(260, Math.min(parent.clientWidth, parent.clientHeight, 620));
+    const dpr = window.devicePixelRatio || 1;
+    canvas.style.width = size + "px";
+    canvas.style.height = size + "px";
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    W = size; H = size;
+    CX = W / 2; CY = H / 2;
+    R = size * 0.46;
+  }
+  resize();
+  window.addEventListener("resize", resize);
+
+  // ry spins around the axis. The tilt is fixed at a pleasant angle plus a
+  // small springy offset from vertical dragging.
+  const TILT = 0.3;
+  const IDLE_SPIN = 0.0022;
+  let ry = -0.8, vy = IDLE_SPIN, tiltOffset = 0;
+  let dragging = false, lastX = 0, lastY = 0;
+  let mouseX = -1, mouseY = -1;
+
+  function rotate(v) {
+    const cy = Math.cos(ry), sy = Math.sin(ry);
+    const x = v[0] * cy - v[2] * sy;
+    let z = v[0] * sy + v[2] * cy;
+    const rx = TILT + tiltOffset;
+    const cx = Math.cos(rx), sx = Math.sin(rx);
+    const y = v[1] * cx - z * sx;
+    z = v[1] * sx + z * cx;
+    return [x, y, z];
+  }
+  function project(v) {
+    return [CX + v[0] * R, CY - v[1] * R, v[2]];
+  }
+
+  canvas.addEventListener("pointerdown", (e) => {
+    dragging = true; lastX = e.clientX; lastY = e.clientY;
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    mouseX = e.offsetX; mouseY = e.offsetY;
+    if (!dragging) return;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    // 1:1 feel: dragging by the globe radius moves the surface by one radian.
+    const d = dx / R;
+    ry += d;
+    vy = vy * 0.7 + d * 0.3;
+    tiltOffset = Math.min(0.35, Math.max(-0.35, tiltOffset + dy / R * 0.6));
+  });
+  canvas.addEventListener("pointerup", () => { dragging = false; });
+  canvas.addEventListener("pointerleave", () => { mouseX = mouseY = -1; });
+  canvas.addEventListener("click", () => {
+    if (hovered >= 0 && caption) {
+      caption.textContent = CITIES[hovered][0] + ". " + CITIES[hovered][3];
+    }
+  });
+
+  // A few arcs between random hubs.
+  const arcs = [];
+  function spawnArc() {
+    const a = Math.floor(Math.random() * CITIES.length);
+    let b = Math.floor(Math.random() * CITIES.length);
+    if (b === a) b = (b + 7) % CITIES.length;
+    arcs.push({ a: cityVecs[a], b: cityVecs[b], t: 0, speed: 0.004 + Math.random() * 0.003 });
+  }
+  for (let i = 0; i < 3; i++) spawnArc();
+
+  function drawLand() {
+    // Depth quantized into alpha buckets so the dots batch into a handful
+    // of paths instead of thousands of draw calls.
+    const N = 6;
+    const buckets = Array.from({ length: N }, () => []);
+    for (const v of landVecs) {
+      const p = project(rotate(v));
+      if (p[2] <= 0.02) continue;
+      buckets[Math.min(N - 1, Math.floor(p[2] * N))].push(p);
+    }
+    const dot = W / 340;
+    ctx.fillStyle = colFg;
+    for (let b = 0; b < N; b++) {
+      ctx.globalAlpha = 0.2 + (b / (N - 1)) * 0.65;
+      ctx.beginPath();
+      for (const p of buckets[b]) {
+        ctx.moveTo(p[0] + dot, p[1]);
+        ctx.arc(p[0], p[1], dot, 0, Math.PI * 2);
+      }
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  let hovered = -1;
+  function drawCities() {
+    hovered = -1;
+    let best = 169;
+    const pts = [];
+    for (let i = 0; i < cityVecs.length; i++) {
+      const p = project(rotate(cityVecs[i]));
+      pts.push(p);
+      if (p[2] > 0 && mouseX >= 0) {
+        const d = (p[0] - mouseX) ** 2 + (p[1] - mouseY) ** 2;
+        if (d < best) { best = d; hovered = i; }
+      }
+    }
+    ctx.save();
+    ctx.shadowColor = colPrimary;
+    ctx.shadowBlur = 8;
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      if (p[2] <= 0) continue;
+      const r = i === hovered ? 5 : 2.4 + p[2] * 1.2;
+      ctx.fillStyle = colPrimary;
+      ctx.globalAlpha = 0.65 + 0.35 * p[2];
+      ctx.beginPath();
+      ctx.arc(p[0], p[1], r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+    if (hovered >= 0) {
+      const p = pts[hovered];
+      ctx.font = "600 13px Inter, ui-sans-serif, system-ui, sans-serif";
+      ctx.fillStyle = colFg;
+      const label = CITIES[hovered][0];
+      const w = ctx.measureText(label).width;
+      ctx.fillText(label, Math.min(Math.max(p[0] - w / 2, 4), W - w - 4), p[1] - 12);
+      canvas.style.cursor = "pointer";
+    } else {
+      canvas.style.cursor = dragging ? "grabbing" : "grab";
+    }
+  }
+
+  function drawArcs() {
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = colPrimary;
+    for (const arc of arcs) {
+      arc.t += arc.speed;
+      const tail = Math.max(0, arc.t - 0.3);
+      let prev = null, head = null;
+      for (let t = tail; t <= Math.min(arc.t, 1); t += 0.02) {
+        const v = slerp(arc.a, arc.b, t);
+        const lift = 1 + 0.08 * Math.sin(Math.PI * t);
+        const p = project(rotate([v[0] * lift, v[1] * lift, v[2] * lift]));
+        if (prev && p[2] > 0 && prev[2] > 0) {
+          ctx.globalAlpha = 0.45 * p[2] * ((t - tail) / 0.3);
+          ctx.beginPath();
+          ctx.moveTo(prev[0], prev[1]);
+          ctx.lineTo(p[0], p[1]);
+          ctx.stroke();
+        }
+        prev = p; head = p;
+      }
+      if (head && head[2] > 0 && arc.t <= 1) {
+        ctx.globalAlpha = 0.85 * head[2];
+        ctx.fillStyle = colPrimary;
+        ctx.beginPath();
+        ctx.arc(head[0], head[1], 1.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+    for (let i = arcs.length - 1; i >= 0; i--) {
+      if (arcs[i].t > 1.4) { arcs.splice(i, 1); spawnArc(); }
+    }
+  }
+
+  function frame() {
+    ctx.clearRect(0, 0, W, H);
+    drawLand();
+    drawArcs();
+    drawCities();
+
+    const hovering = mouseX >= 0;
+    if (!dragging) {
+      // Tilt springs back to the base angle.
+      tiltOffset *= 0.9;
+      if (hovering) {
+        // Rest while the pointer is over the globe.
+        vy *= 0.85;
+      } else {
+        // Inertia fades into the idle spin.
+        vy += (IDLE_SPIN - vy) * 0.02;
+        ry += vy;
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  new MutationObserver(loadColors).observe(document.documentElement, {
+    attributes: true, attributeFilter: ["class", "data-theme"],
+  });
+
+  requestAnimationFrame(frame);
+})();

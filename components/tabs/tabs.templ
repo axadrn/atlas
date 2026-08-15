@@ -1,0 +1,236 @@
+package tabs
+
+import (
+	"context"
+	"atlas/utils"
+)
+
+type Orientation string
+
+const (
+	OrientationHorizontal Orientation = "horizontal"
+	OrientationVertical   Orientation = "vertical"
+)
+
+type Props struct {
+	ID         string
+	Class      string
+	Attributes templ.Attributes
+	// Orientation of the tabs. Defaults to horizontal.
+	Orientation Orientation
+	// Value is the controlled active tab. Use DefaultValue when the browser
+	// should own the active tab after the initial render.
+	Value *string
+	// DefaultValue is the value of the initially active tab.
+	DefaultValue string
+}
+
+type ctxState struct {
+	id         string
+	value      string
+	controlled bool
+}
+
+type ctxKey string
+
+const stateKey ctxKey = "tabsState"
+
+func initialValue(p Props) string {
+	if p.Value != nil {
+		return *p.Value
+	}
+	return p.DefaultValue
+}
+
+func state(ctx context.Context) ctxState {
+	if s, ok := ctx.Value(stateKey).(ctxState); ok {
+		return s
+	}
+	return ctxState{}
+}
+
+type Variant string
+
+const (
+	VariantDefault Variant = "default"
+	VariantLine    Variant = "line"
+)
+
+type ListProps struct {
+	ID         string
+	Class      string
+	Attributes templ.Attributes
+	// Variant of the list. Options: 'default' (filled), 'line' (underline).
+	Variant Variant
+}
+
+type TriggerProps struct {
+	ID         string
+	Class      string
+	Attributes templ.Attributes
+	Value      string
+	Disabled   bool
+	TabsID     string
+}
+
+type ContentProps struct {
+	ID         string
+	Class      string
+	Attributes templ.Attributes
+	Value      string
+	TabsID     string
+}
+
+templ Tabs(props ...Props) {
+	{{ var p Props }}
+	if len(props) > 0 {
+		{{ p = props[0] }}
+	}
+	{{ tabsID := p.ID }}
+	if tabsID == "" {
+		{{ tabsID = utils.RandomID() }}
+	}
+	if p.Orientation == "" {
+		{{ p.Orientation = OrientationHorizontal }}
+	}
+	{{ value := initialValue(p) }}
+	<div
+		if p.ID != "" {
+			id={ p.ID }
+		}
+		class={ utils.CN("gap-2 group/tabs flex data-horizontal:flex-col", p.Class) }
+		data-tui-tabs
+		data-orientation={ string(p.Orientation) }
+		data-horizontal?={ p.Orientation == OrientationHorizontal }
+		data-vertical?={ p.Orientation == OrientationVertical }
+		data-tui-tabs-id={ tabsID }
+		data-tui-tabs-controlled?={ p.Value != nil }
+		data-tui-tabs-value={ value }
+		{ p.Attributes... }
+	>
+		{{ ctx = context.WithValue(ctx, stateKey, ctxState{id: tabsID, value: value, controlled: p.Value != nil}) }}
+		{ children... }
+	</div>
+}
+
+templ List(props ...ListProps) {
+	{{ var p ListProps }}
+	if len(props) > 0 {
+		{{ p = props[0] }}
+	}
+	{{ tabsID := IDFromContext(ctx) }}
+	<div
+		if p.ID != "" {
+			id={ p.ID }
+		}
+		class={
+			utils.CN(
+				"rounded-lg p-[3px] group-data-horizontal/tabs:h-8 data-[variant=line]:rounded-none group/tabs-list inline-flex w-fit items-center justify-center text-muted-foreground group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col",
+				listVariantClasses(p.Variant),
+				p.Class,
+			),
+		}
+		data-variant={ string(listVariant(p.Variant)) }
+		data-tui-tabs-list
+		data-tui-tabs-id={ tabsID }
+		{ p.Attributes... }
+	>
+		{ children... }
+	</div>
+}
+
+templ Trigger(props ...TriggerProps) {
+	{{ var p TriggerProps }}
+	if len(props) > 0 {
+		{{ p = props[0] }}
+	}
+	{{ tabsID := p.TabsID }}
+	if tabsID == "" {
+		{{ tabsID = IDFromContext(ctx) }}
+	}
+	if p.Value == "" {
+		<span class="text-xs text-destructive">Error: Tab Trigger missing required 'Value' attribute.</span>
+	}
+	<button
+		if p.ID != "" {
+			id={ p.ID }
+		}
+		type="button"
+		class={
+			utils.CN(
+				"gap-1.5 rounded-md border border-transparent px-1.5 py-0.5 text-sm font-medium group-data-[variant=default]/tabs-list:data-active:shadow-sm group-data-[variant=line]/tabs-list:data-active:shadow-none [&_svg:not([class*='size-'])]:size-4 has-data-[icon=inline-end]:pr-1 has-data-[icon=inline-start]:pl-1 relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center whitespace-nowrap text-foreground/60 transition-all group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 dark:text-muted-foreground dark:hover:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0",
+				"group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-active:bg-transparent dark:group-data-[variant=line]/tabs-list:data-active:border-transparent dark:group-data-[variant=line]/tabs-list:data-active:bg-transparent",
+				"data-active:bg-background data-active:text-foreground dark:data-active:border-input dark:data-active:bg-input/30 dark:data-active:text-foreground",
+				"after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-horizontal/tabs:after:inset-x-0 group-data-horizontal/tabs:after:bottom-[-5px] group-data-horizontal/tabs:after:h-0.5 group-data-vertical/tabs:after:inset-y-0 group-data-vertical/tabs:after:-right-1 group-data-vertical/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-active:after:opacity-100",
+				p.Class,
+			),
+		}
+		data-tui-tabs-trigger
+		data-tui-tabs-id={ tabsID }
+		data-tui-tabs-value={ p.Value }
+		data-tui-tabs-state={ utils.IfElse(tabsIsActive(ctx, p.Value), "active", "inactive") }
+		data-active?={ tabsIsActive(ctx, p.Value) }
+		disabled?={ p.Disabled }
+		{ p.Attributes... }
+	>
+		{ children... }
+	</button>
+}
+
+templ Content(props ...ContentProps) {
+	{{ var p ContentProps }}
+	if len(props) > 0 {
+		{{ p = props[0] }}
+	}
+	{{ tabsID := p.TabsID }}
+	if tabsID == "" {
+		{{ tabsID = IDFromContext(ctx) }}
+	}
+	if p.Value == "" {
+		<span class="text-xs text-destructive">Error: Tab Content missing required 'Value' attribute.</span>
+		return templ.NopComponent
+	}
+	<div
+		if p.ID != "" {
+			id={ p.ID }
+		}
+		class={
+			utils.CN(
+				"text-sm flex-1 outline-none",
+				map[string]bool{"hidden": !tabsIsActive(ctx, p.Value)},
+				p.Class,
+			),
+		}
+		data-tui-tabs-content
+		data-tui-tabs-id={ tabsID }
+		data-tui-tabs-value={ p.Value }
+		data-tui-tabs-state={ utils.IfElse(tabsIsActive(ctx, p.Value), "active", "inactive") }
+		{ p.Attributes... }
+	>
+		{ children... }
+	</div>
+}
+
+// tabsIsActive reports whether value is the root's initial active value.
+func tabsIsActive(ctx context.Context, value string) bool {
+	s := state(ctx)
+	return s.value != "" && s.value == value
+}
+
+func IDFromContext(ctx context.Context) string {
+	return state(ctx).id
+}
+
+func listVariant(v Variant) Variant {
+	if v == "" {
+		return VariantDefault
+	}
+	return v
+}
+
+func listVariantClasses(v Variant) string {
+	if listVariant(v) == VariantLine {
+		return "gap-1 bg-transparent"
+	}
+	return "bg-muted"
+}

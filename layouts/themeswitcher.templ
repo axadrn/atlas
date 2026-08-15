@@ -1,0 +1,51 @@
+package layouts
+
+import (
+	"atlas/components/button"
+	"atlas/utils"
+)
+
+// ThemeSwitcher is a trimmed port of the shadcn-templ docs switcher: a ghost
+// icon button with the half shaded globe that cycles light and dark via
+// localStorage. The initial class is set by the inline script in Base so
+// there is no flash of the wrong theme.
+templ ThemeSwitcher(class string) {
+	<script nonce={ templ.GetNonce(ctx) }>
+		(function () {
+			function apply() {
+				const pref = localStorage.getItem("theme") || "system";
+				const dark = pref === "system"
+					? window.matchMedia("(prefers-color-scheme: dark)").matches
+					: pref === "dark";
+				document.documentElement.classList.toggle("dark", dark);
+			}
+			window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+				if ((localStorage.getItem("theme") || "system") === "system") apply();
+			});
+			document.addEventListener("click", (e) => {
+				if (!e.target.closest("[data-theme-switcher]")) return;
+				const dark = document.documentElement.classList.contains("dark");
+				localStorage.setItem("theme", dark ? "light" : "dark");
+				apply();
+			});
+		})();
+	</script>
+	@button.Button(button.Props{
+		Size:    button.SizeIcon,
+		Variant: button.VariantGhost,
+		Class:   utils.CN("size-8", class),
+		Attributes: templ.Attributes{
+			"data-theme-switcher": "true",
+		},
+	}) {
+		<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4.5">
+			<path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+			<path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"></path>
+			<path d="M12 3l0 18"></path>
+			<path d="M12 9l4.65 -4.65"></path>
+			<path d="M12 14.3l7.37 -7.37"></path>
+			<path d="M12 19.6l8.85 -8.85"></path>
+		</svg>
+		<span class="sr-only">Toggle theme</span>
+	}
+}
