@@ -159,8 +159,8 @@ templ Place(place catalog.PlaceSummary, sources []catalog.SourceAttribution) {
 				</section>
 				if place.Bounds != nil || place.Coordinates != nil {
 					@card.Card(card.Props{Class: "gap-0 overflow-hidden rounded-2xl py-0 shadow-sm"}) {
-						<div class="relative h-[52vh] min-h-96 w-full overflow-hidden bg-muted" { placeMapAttributes(place)... }>
-							<div class="h-full w-full" data-map-canvas></div>
+						<div class="relative h-[52vh] min-h-96 w-full overflow-hidden rounded-t-2xl bg-muted" { placeMapAttributes(place)... }>
+							<div class="h-full w-full overflow-hidden rounded-t-2xl" data-map-canvas></div>
 							<label class="absolute right-3 top-3 z-10">
 								<span class="sr-only">Map style</span>
 								<select class="h-8 rounded-lg border border-border bg-background/95 px-2 text-xs font-medium text-foreground shadow-sm backdrop-blur" data-map-style aria-label="Map style">
