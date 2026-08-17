@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -15,6 +16,7 @@ import (
 
 	"atlas/components"
 	"atlas/internal/database"
+	"atlas/internal/importer/geonames"
 	"atlas/pages"
 )
 
@@ -25,6 +27,15 @@ func main() {
 		os.Exit(1)
 	}
 	defer db.Close()
+
+	serve, err := runCommand(context.Background(), db, os.Args[1:])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if !serve {
+		return
+	}
 
 	mux := http.NewServeMux()
 	setupAssetsRoutes(mux)
@@ -54,6 +65,22 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func runCommand(ctx context.Context, db *sql.DB, args []string) (bool, error) {
+	if len(args) == 0 || (len(args) == 1 && args[0] == "serve") {
+		return true, nil
+	}
+	if len(args) == 2 && args[0] == "import" && args[1] == "geonames" {
+		stats, err := geonames.Import(ctx, db, geonames.Options{})
+		if err != nil {
+			return false, err
+		}
+		fmt.Printf("Imported %d countries and %d cities from GeoNames (%d skipped)\n",
+			stats.Countries, stats.Cities, stats.Skipped)
+		return false, nil
+	}
+	return false, fmt.Errorf("usage: atlas [serve | import geonames]")
 }
 
 func databasePath() string {

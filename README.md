@@ -36,6 +36,19 @@ Goal, said out loud: become the biggest digital nomad platform in the world.
 
 One binary. One box. That is the whole infrastructure.
 
+## Bootstrap place data
+
+Atlas imports the official GeoNames country registry and `cities5000` dump
+into SQLite. The import records source URLs and SHA-256 checksums and is safe to
+run repeatedly.
+
+```sh
+go run . import geonames
+```
+
+GeoNames data is licensed under CC BY 4.0. The application keeps the required
+source and license attribution with the imported records.
+
 ## The builder
 
 Built by one guy:
