@@ -8,9 +8,23 @@ Goal, said out loud: become the biggest digital nomad platform in the world.
 
 ## What it is
 
-- Open data for countries, cities, visas and tax regimes
-- Maintained like code
+- A living world map built by perpetual travelers and digital nomads
+- Transparent data for countries, cities and life on the ground
+- Structured observations, personal experience and sourced claims kept separate
+- Community governed, openly auditable and designed to resist manipulation
 - Open source and built in public
+
+## Product foundations
+
+- [Product](docs/product.md): what Atlas is, why it should exist and what the
+  first useful version contains
+- [Data](docs/data.md): what belongs in the database, what stays in Git and how
+  public data access is decided
+- [Trust and governance](docs/trust-and-governance.md): how the community can
+  review itself without turning the founder into the daily moderator
+- [Decisions](docs/decisions.md): the current choices, their tradeoffs and the
+  evidence that would make us reconsider them
+- [Roadmap](ROADMAP.md): the order in which the product gets built
 
 ## The stack
 
@@ -59,4 +73,6 @@ the [agent rules](AGENTS.md).
 
 ## License
 
-[MIT](LICENSE) for code, CC BY 4.0 for data. Fork it if you do not like it.
+[MIT](LICENSE) for code. Atlas-produced public datasets explicitly marked as
+open data use CC BY 4.0. User content and imported data retain their stated
+terms. Fork the code if you do not like it.
