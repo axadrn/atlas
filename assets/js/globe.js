@@ -8,51 +8,14 @@
   const caption = document.getElementById("globe-caption");
   const ctx = canvas.getContext("2d");
 
-  const CITIES = [
-    ["Lisbon", 38.7, -9.1, "Yes, everyone is here."],
-    ["Madeira", 32.65, -16.9, "Digital nomad village, literally."],
-    ["Las Palmas", 28.1, -15.4, "Winter office of half of Europe."],
-    ["Barcelona", 41.4, 2.2, "Beach, laptop, pickpockets."],
-    ["Berlin", 52.5, 13.4, "Anmeldung not included."],
-    ["Prague", 50.1, 14.4, "Zivno visa says hi."],
-    ["Budapest", 47.5, 19.0, "Ruin bars and low flat tax."],
-    ["Warsaw", 52.2, 21.0, "The underrated one."],
-    ["Tallinn", 59.4, 24.8, "e-Residency was the trailer."],
-    ["Athens", 38.0, 23.7, "Half your rent, twice your sun."],
-    ["Istanbul", 41.0, 29.0, "Two continents, one breakfast."],
-    ["Tbilisi", 41.7, 44.8, "One year visa free. You read that right."],
-    ["Dubai", 25.2, 55.3, "Zero percent, forty degrees."],
-    ["Bangkok", 13.8, 100.5, "The eternal basecamp."],
-    ["Chiang Mai", 18.8, 99.0, "Where it all started."],
-    ["Da Nang", 16.05, 108.2, "Beach town with gigabit."],
-    ["Ho Chi Minh", 10.8, 106.7, "Coffee strong enough to ship."],
-    ["Singapore", 1.35, 103.8, "Layover that became a lifestyle."],
-    ["Kuala Lumpur", 3.15, 101.7, "Most underrated hub in Asia."],
-    ["Canggu", -8.65, 115.13, "Scooters, smoothie bowls, deadlines."],
-    ["Tokyo", 35.7, 139.7, "Expensive. Worth it."],
-    ["Seoul", 37.6, 127.0, "Fastest wifi you will ever waste."],
-    ["Taipei", 25.0, 121.5, "Gold card, bubble tea."],
-    ["Cape Town", -33.9, 18.4, "Loadshedding builds character."],
-    ["Marrakech", 31.6, -8.0, "Riad office goals."],
-    ["Buenos Aires", -34.6, -58.4, "Steak priced in a currency of mystery."],
-    ["Medellin", 6.2, -75.6, "Eternal spring, eternal coworking."],
-    ["Mexico City", 19.4, -99.1, "Tacos at every tax bracket."],
-    ["Playa del Carmen", 20.6, -87.1, "Cenotes between calls."],
-    ["Panama City", 9.0, -79.5, "Ask about territorial taxation."],
-    ["Asuncion", -25.3, -57.6, "The residency nerds know why."],
-    ["Austin", 30.3, -97.7, "No state income tax, y'all."],
-    ["Miami", 25.8, -80.2, "Where crypto twitter touches grass."],
-    ["New York", 40.7, -74.0, "Visited, invoiced, left."],
-    ["Auckland", -36.8, 174.8, "As far from your tax office as it gets."],
-    ["Sydney", -33.9, 151.2, "Timezone hard mode."],
-  ];
+  let CITIES = [];
 
   const D2R = Math.PI / 180;
   function toVec(lat, lon) {
     const la = lat * D2R, lo = lon * D2R;
     return [Math.cos(la) * Math.cos(lo), Math.sin(la), Math.cos(la) * Math.sin(lo)];
   }
-  const cityVecs = CITIES.map((c) => toVec(c[1], c[2]));
+  let cityVecs = [];
 
   // Land dots: a fibonacci sphere sampled against the landmask, so the dots
   // are evenly spaced with no visible latitude rows.
@@ -158,18 +121,45 @@
   canvas.addEventListener("click", () => {
     if (hovered >= 0 && caption) {
       caption.textContent = CITIES[hovered][0] + ". " + CITIES[hovered][3];
+      window.location.href = "/places/" + encodeURIComponent(CITIES[hovered][4]);
     }
   });
 
   // A few arcs between random hubs.
   const arcs = [];
   function spawnArc() {
+    if (CITIES.length < 2) return;
     const a = Math.floor(Math.random() * CITIES.length);
     let b = Math.floor(Math.random() * CITIES.length);
     if (b === a) b = (b + 7) % CITIES.length;
     arcs.push({ a: cityVecs[a], b: cityVecs[b], t: 0, speed: 0.004 + Math.random() * 0.003 });
   }
-  for (let i = 0; i < 3; i++) spawnArc();
+
+  async function loadCities() {
+    try {
+      const response = await fetch("/api/map/cities?limit=150", {
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      CITIES = (data.results || [])
+        .filter((place) => place.coordinates)
+        .map((place) => [
+          place.name,
+          place.coordinates.latitude,
+          place.coordinates.longitude,
+          [place.country_code, place.population ? new Intl.NumberFormat().format(place.population) + " people" : ""]
+            .filter(Boolean)
+            .join(" · "),
+          place.slug,
+        ]);
+      cityVecs = CITIES.map((city) => toVec(city[1], city[2]));
+      for (let i = 0; i < 3; i++) spawnArc();
+    } catch (_) {
+      // The globe remains interactive even when map data is unavailable.
+    }
+  }
+  loadCities();
 
   function drawLand() {
     // Depth quantized into alpha buckets so the dots batch into a handful

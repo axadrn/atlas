@@ -1,0 +1,95 @@
+package pages
+
+import (
+	"fmt"
+	"net/url"
+	"strconv"
+
+	"atlas/components/badge"
+	"atlas/components/card"
+	"atlas/components/icon"
+	"atlas/internal/catalog"
+	"atlas/layouts"
+)
+
+func placePopulation(population *int64) string {
+	if population == nil {
+		return "Not available yet"
+	}
+	return fmt.Sprintf("%s people", formatNumber(*population))
+}
+
+func formatNumber(value int64) string {
+	digits := strconv.FormatInt(value, 10)
+	for index := len(digits) - 3; index > 0; index -= 3 {
+		digits = digits[:index] + "," + digits[index:]
+	}
+	return digits
+}
+
+func osmEmbedURL(coordinates *catalog.Coordinates) string {
+	if coordinates == nil {
+		return ""
+	}
+	latitude := coordinates.Latitude
+	longitude := coordinates.Longitude
+	query := url.Values{}
+	query.Set("bbox", fmt.Sprintf("%.6f,%.6f,%.6f,%.6f", longitude-0.12, latitude-0.08, longitude+0.12, latitude+0.08))
+	query.Set("layer", "mapnik")
+	query.Set("marker", fmt.Sprintf("%.6f,%.6f", latitude, longitude))
+	return "https://www.openstreetmap.org/export/embed.html?" + query.Encode()
+}
+
+templ Place(place catalog.PlaceSummary) {
+	@layouts.Base(place.Name + " | Atlas") {
+		<main class="mx-auto min-h-dvh w-full max-w-6xl px-5 py-6 sm:px-8 sm:py-10">
+			<header class="mb-10 flex items-center justify-between">
+				<a href="/" class="font-heading text-xl font-bold tracking-tight">atlas</a>
+				@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+					{ string(place.Kind) }
+				}
+			</header>
+			<div class="grid gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.35fr)] lg:items-start">
+				<section>
+					<p class="mb-2 text-sm font-medium uppercase tracking-[0.18em] text-primary">{ place.CountryCode }</p>
+					<h1 class="font-heading text-4xl font-bold tracking-tight sm:text-6xl">{ place.Name }</h1>
+					<p class="mt-4 max-w-xl text-lg text-muted-foreground">
+						A live place page built from sourced public data. Community signals, costs and practical nomad knowledge come next.
+					</p>
+					@card.Card(card.Props{Size: card.SizeSm, Class: "mt-10 gap-0 py-0"}) {
+						@card.Content(card.ContentProps{Class: "grid grid-cols-2 divide-x p-0"}) {
+							<div class="p-5">
+								<div class="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+									@icon.Users(icon.Props{Class: "size-4"})
+									Population
+								</div>
+								<p class="font-heading text-lg font-semibold">{ placePopulation(place.Population) }</p>
+							</div>
+							<div class="p-5">
+								<div class="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+									@icon.Clock(icon.Props{Class: "size-4"})
+									Timezone
+								</div>
+								<p class="font-heading text-lg font-semibold">{ place.Timezone }</p>
+							</div>
+						}
+					}
+				</section>
+				if place.Coordinates != nil {
+					@card.Card(card.Props{Class: "gap-0 py-0"}) {
+						<iframe
+							class="h-[52vh] min-h-96 w-full"
+							src={ osmEmbedURL(place.Coordinates) }
+							title={ "Map of " + place.Name }
+							loading="lazy"
+							referrerpolicy="no-referrer-when-downgrade"
+						></iframe>
+						@card.Footer(card.FooterProps{Class: "text-xs text-muted-foreground"}) {
+							Map data © <a class="ml-1 underline underline-offset-2" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>
+						}
+					}
+				}
+			</div>
+		</main>
+	}
+}

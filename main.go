@@ -4,17 +4,20 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/a-h/templ"
 
 	"atlas/components"
+	"atlas/internal/catalog"
 	"atlas/internal/database"
 	"atlas/internal/importer/geonames"
 	"atlas/pages"
@@ -39,6 +42,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	setupAssetsRoutes(mux)
+	setupPlaceRoutes(mux, catalog.NewStore(db))
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		templ.Handler(pages.Home(githubStars())).ServeHTTP(w, r)
 	})
@@ -61,7 +65,15 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("Server is running on http://localhost:%d\n", ln.Addr().(*net.TCPAddr).Port)
-	if err := http.Serve(ln, withNoindexHeader(mux)); err != nil {
+	server := &http.Server{
+		Handler:           withSecurityHeaders(withNoindexHeader(mux)),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 20,
+	}
+	if err := server.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -169,6 +181,12 @@ func listen() (net.Listener, error) {
 
 func setupAssetsRoutes(mux *http.ServeMux) {
 	assetHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, ".js"):
+			w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		case strings.HasSuffix(r.URL.Path, ".css"):
+			w.Header().Set("Content-Type", "text/css; charset=utf-8")
+		}
 		if os.Getenv("GO_ENV") != "production" {
 			w.Header().Set("Cache-Control", "no-store")
 		} else {

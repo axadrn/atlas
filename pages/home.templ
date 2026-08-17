@@ -5,6 +5,7 @@ import (
 
 	"atlas/components/badge"
 	"atlas/components/button"
+	"atlas/components/placesearch"
 	"atlas/layouts"
 )
 
@@ -25,10 +26,11 @@ templ Home(stars int) {
 				The open source home for digital nomads.
 			</h1>
 			<p class="max-w-xl text-pretty text-center text-base text-muted-foreground sm:text-lg">
-				Think nomads.com, but open and open source. Cities, visas, taxes and cost
-				of living as open data anyone can fix with a pull request. Borders are an
-				implementation detail.
+				Explore cities with sourced public data and community-verified nomad
+				knowledge. Open source, international from day one and built to improve
+				with every useful contribution.
 			</p>
+			@placesearch.PlaceSearch()
 			<div class="flex min-h-0 w-full flex-1 items-center justify-center">
 				<canvas id="globe" class="block touch-none"></canvas>
 			</div>
@@ -45,7 +47,7 @@ templ Home(stars int) {
 				}
 			}
 		</main>
-		<script src="/assets/js/landmask.js"></script>
-		<script src="/assets/js/globe.js" defer></script>
+		<script nonce={ templ.GetNonce(ctx) } src="/assets/js/landmask.js"></script>
+		<script nonce={ templ.GetNonce(ctx) } src="/assets/js/globe.js" defer></script>
 	}
 }

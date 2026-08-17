@@ -1,0 +1,85 @@
+package placesearch
+
+import (
+	"fmt"
+
+	"atlas/components/combobox"
+	"atlas/components/icon"
+	"atlas/components/inputgroup"
+	"atlas/internal/catalog"
+)
+
+func populationLabel(population *int64) string {
+	if population == nil {
+		return ""
+	}
+	if *population >= 1_000_000 {
+		return fmt.Sprintf("%.1fM", float64(*population)/1_000_000)
+	}
+	if *population >= 1_000 {
+		return fmt.Sprintf("%.0fk", float64(*population)/1_000)
+	}
+	return fmt.Sprintf("%d", *population)
+}
+
+templ PlaceSearch() {
+	<div data-place-search class="relative z-20 w-full max-w-xl">
+		<label for="place-search-input" class="sr-only">Search countries and cities</label>
+		@combobox.Combobox(combobox.Props{ID: "place-search-combobox", AutoHighlight: true}) {
+			@combobox.Input(combobox.InputProps{
+				ID:          "place-search-input",
+				Class:       "h-12 w-full rounded-xl bg-background/95 shadow-sm backdrop-blur",
+				Placeholder: "Search Berlin, Bangkok, Argentina...",
+				HideTrigger: true,
+				Attributes: templ.Attributes{
+					"data-place-search-input": "",
+				},
+			}) {
+				@inputgroup.Addon() {
+					@icon.Search(icon.Props{Class: "size-5"})
+				}
+				@inputgroup.Addon(inputgroup.AddonProps{Align: inputgroup.AlignInlineEnd}) {
+					<kbd class="hidden rounded border bg-muted px-1.5 py-0.5 text-xs text-muted-foreground sm:block">/</kbd>
+				}
+			}
+			@combobox.Content(combobox.ContentProps{
+				Class: "min-w-(--tui-combobox-anchor-width)",
+				Attributes: templ.Attributes{
+					"data-place-search-content": "",
+				},
+			}) {
+				@combobox.Empty(combobox.EmptyProps{
+					Class: "py-4",
+					Attributes: templ.Attributes{
+						"data-place-search-empty": "",
+					},
+				}) {
+					Type at least two characters.
+				}
+				@combobox.List(combobox.ListProps{
+					Attributes: templ.Attributes{
+						"data-place-search-results": "",
+					},
+				})
+			}
+		}
+	</div>
+}
+
+templ Results(places []catalog.PlaceSummary) {
+	for _, place := range places {
+		@combobox.Item(combobox.ItemProps{
+			Value: place.Slug,
+			Label: place.Name,
+			Class: "py-2.5",
+		}) {
+			<span class="min-w-0 flex-1">
+				<span class="block truncate font-medium">{ place.Name }</span>
+				<span class="block text-xs text-muted-foreground">{ place.CountryCode } · { string(place.Kind) }</span>
+			</span>
+			if place.Population != nil {
+				<span class="shrink-0 pr-1 text-xs tabular-nums text-muted-foreground">{ populationLabel(place.Population) }</span>
+			}
+		}
+	}
+}

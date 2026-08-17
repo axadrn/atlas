@@ -5,12 +5,14 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 var ErrPlaceNotFound = errors.New("place not found")
 
 type queryExecutor interface {
 	ExecContext(context.Context, string, ...any) (sql.Result, error)
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
 	QueryRowContext(context.Context, string, ...any) *sql.Row
 }
 
@@ -114,6 +116,204 @@ func (s *Store) PlaceByID(ctx context.Context, id string) (Place, error) {
 		place.Population = &population.Int64
 	}
 	return place, nil
+}
+
+type PlaceSummary struct {
+	ID          string       `json:"id"`
+	Slug        string       `json:"slug"`
+	Name        string       `json:"name"`
+	Kind        PlaceKind    `json:"kind"`
+	CountryCode string       `json:"country_code,omitempty"`
+	Coordinates *Coordinates `json:"coordinates,omitempty"`
+	Timezone    string       `json:"timezone,omitempty"`
+	Population  *int64       `json:"population,omitempty"`
+}
+
+func (s *Store) SearchPlaces(ctx context.Context, query string, limit int) ([]PlaceSummary, error) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return []PlaceSummary{}, nil
+	}
+	limit = boundedLimit(limit, 10, 25)
+	pattern := "%" + escapeLike(query) + "%"
+	prefix := escapeLike(query) + "%"
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT
+			p.id,
+			p.slug,
+			(
+				SELECT preferred.name
+				FROM place_names preferred
+				WHERE preferred.place_id = p.id AND preferred.is_preferred = 1
+				ORDER BY CASE preferred.language_tag WHEN 'en' THEN 0 WHEN 'und' THEN 1 ELSE 2 END
+				LIMIT 1
+			) AS name,
+			p.kind,
+			COALESCE(p.country_code, ''),
+			p.latitude,
+			p.longitude,
+			COALESCE(p.timezone, ''),
+			p.population
+		FROM places p
+		WHERE p.status = 'active'
+			AND p.kind IN ('country', 'territory', 'city', 'metro')
+			AND EXISTS (
+				SELECT 1
+				FROM place_names matched
+				WHERE matched.place_id = p.id
+					AND matched.name LIKE ? ESCAPE '\' COLLATE NOCASE
+			)
+		ORDER BY
+			CASE
+				WHEN name = ? COLLATE NOCASE THEN 0
+				WHEN name LIKE ? ESCAPE '\' COLLATE NOCASE THEN 1
+				ELSE 2
+			END,
+			p.population DESC NULLS LAST,
+			name COLLATE NOCASE
+		LIMIT ?
+	`, pattern, query, prefix, limit)
+	if err != nil {
+		return nil, fmt.Errorf("search places: %w", err)
+	}
+	defer rows.Close()
+
+	places := make([]PlaceSummary, 0, limit)
+	for rows.Next() {
+		place, err := scanPlaceSummary(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan place search result: %w", err)
+		}
+		places = append(places, place)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read place search results: %w", err)
+	}
+	return places, nil
+}
+
+func (s *Store) MapCities(ctx context.Context, limit int) ([]PlaceSummary, error) {
+	limit = boundedLimit(limit, 150, 500)
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT
+			p.id,
+			p.slug,
+			(
+				SELECT preferred.name
+				FROM place_names preferred
+				WHERE preferred.place_id = p.id AND preferred.is_preferred = 1
+				ORDER BY CASE preferred.language_tag WHEN 'en' THEN 0 WHEN 'und' THEN 1 ELSE 2 END
+				LIMIT 1
+			) AS name,
+			p.kind,
+			COALESCE(p.country_code, ''),
+			p.latitude,
+			p.longitude,
+			COALESCE(p.timezone, ''),
+			p.population
+		FROM places p
+		WHERE p.status = 'active'
+			AND p.kind IN ('city', 'metro')
+			AND p.latitude IS NOT NULL
+			AND p.longitude IS NOT NULL
+		ORDER BY p.population DESC NULLS LAST, name COLLATE NOCASE
+		LIMIT ?
+	`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list map cities: %w", err)
+	}
+	defer rows.Close()
+
+	places := make([]PlaceSummary, 0, limit)
+	for rows.Next() {
+		place, err := scanPlaceSummary(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan map city: %w", err)
+		}
+		places = append(places, place)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read map cities: %w", err)
+	}
+	return places, nil
+}
+
+func (s *Store) PlaceBySlug(ctx context.Context, slug string) (PlaceSummary, error) {
+	row := s.db.QueryRowContext(ctx, `
+		SELECT
+			p.id,
+			p.slug,
+			(
+				SELECT preferred.name
+				FROM place_names preferred
+				WHERE preferred.place_id = p.id AND preferred.is_preferred = 1
+				ORDER BY CASE preferred.language_tag WHEN 'en' THEN 0 WHEN 'und' THEN 1 ELSE 2 END
+				LIMIT 1
+			) AS name,
+			p.kind,
+			COALESCE(p.country_code, ''),
+			p.latitude,
+			p.longitude,
+			COALESCE(p.timezone, ''),
+			p.population
+		FROM places p
+		WHERE p.slug = ? AND p.status = 'active'
+	`, slug)
+	place, err := scanPlaceSummary(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return PlaceSummary{}, ErrPlaceNotFound
+	}
+	if err != nil {
+		return PlaceSummary{}, fmt.Errorf("get place by slug: %w", err)
+	}
+	return place, nil
+}
+
+type rowScanner interface {
+	Scan(...any) error
+}
+
+func scanPlaceSummary(row rowScanner) (PlaceSummary, error) {
+	var place PlaceSummary
+	var latitude, longitude sql.NullFloat64
+	var population sql.NullInt64
+	if err := row.Scan(
+		&place.ID,
+		&place.Slug,
+		&place.Name,
+		&place.Kind,
+		&place.CountryCode,
+		&latitude,
+		&longitude,
+		&place.Timezone,
+		&population,
+	); err != nil {
+		return PlaceSummary{}, err
+	}
+	if latitude.Valid && longitude.Valid {
+		place.Coordinates = &Coordinates{Latitude: latitude.Float64, Longitude: longitude.Float64}
+	}
+	if population.Valid {
+		place.Population = &population.Int64
+	}
+	return place, nil
+}
+
+func boundedLimit(limit int, defaultLimit int, maximum int) int {
+	if limit <= 0 {
+		return defaultLimit
+	}
+	if limit > maximum {
+		return maximum
+	}
+	return limit
+}
+
+func escapeLike(value string) string {
+	value = strings.ReplaceAll(value, "\\", "\\\\")
+	value = strings.ReplaceAll(value, "%", "\\%")
+	return strings.ReplaceAll(value, "_", "\\_")
 }
 
 type PlaceName struct {
