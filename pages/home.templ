@@ -17,7 +17,7 @@ func formatStars(n int) string {
 }
 
 templ Home(stars int) {
-	@layouts.Base("atlas") {
+	@layouts.Base("atlas", false) {
 		<main class="mx-auto flex h-dvh max-w-4xl flex-col items-center justify-center gap-4 overflow-hidden px-6 py-8">
 			@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
 				coming soon

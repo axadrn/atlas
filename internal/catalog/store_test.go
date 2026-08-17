@@ -3,6 +3,7 @@ package catalog_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -162,5 +163,111 @@ func TestStoreSearchesAndListsPlaces(t *testing.T) {
 	_, err = store.PlaceBySlug(ctx, "missing")
 	if !errors.Is(err, catalog.ErrPlaceNotFound) {
 		t.Fatalf("expected ErrPlaceNotFound, got %v", err)
+	}
+}
+
+func TestStoreReplacesProviderReferenceWithoutLosingItOnConflict(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db, err := database.Open(ctx, filepath.Join(t.TempDir(), "atlas.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	store := catalog.NewStore(db)
+
+	for _, place := range []catalog.Place{
+		{ID: "plc_first", Slug: "first", Kind: catalog.PlaceKindCity, Status: catalog.PlaceStatusActive},
+		{ID: "plc_second", Slug: "second", Kind: catalog.PlaceKindCity, Status: catalog.PlaceStatusActive},
+	} {
+		if err := store.UpsertPlace(ctx, place); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, ref := range []catalog.ExternalReference{
+		{Provider: "example", ExternalID: "old", PlaceID: "plc_first"},
+		{Provider: "example", ExternalID: "taken", PlaceID: "plc_second"},
+	} {
+		if err := store.UpsertExternalReference(ctx, ref); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := store.UpsertExternalReference(ctx, catalog.ExternalReference{
+		Provider: "example", ExternalID: "new", PlaceID: "plc_first",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.UpsertExternalReference(ctx, catalog.ExternalReference{
+		Provider: "example", ExternalID: "taken", PlaceID: "plc_first",
+	}); err == nil {
+		t.Fatal("expected a provider ID collision")
+	}
+
+	var externalID string
+	if err := db.QueryRowContext(ctx, `
+		SELECT external_id FROM external_references
+		WHERE place_id = 'plc_first' AND provider = 'example'
+	`).Scan(&externalID); err != nil {
+		t.Fatal(err)
+	}
+	if externalID != "new" {
+		t.Fatalf("expected the last valid provider ID, got %q", externalID)
+	}
+}
+
+func TestStoreDerivesCountryMapDataFromCities(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db, err := database.Open(ctx, filepath.Join(t.TempDir(), "atlas.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	store := catalog.NewStore(db)
+
+	fiji := catalog.Place{
+		ID:          "plc_fiji_map",
+		Slug:        "fiji",
+		Kind:        catalog.PlaceKindCountry,
+		Status:      catalog.PlaceStatusActive,
+		CountryCode: "FJ",
+	}
+	if err := store.UpsertPlace(ctx, fiji); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.UpsertPlaceName(ctx, catalog.PlaceName{
+		PlaceID: fiji.ID, LanguageTag: "en", Name: "Fiji", Kind: "common", Preferred: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for index, city := range []catalog.Place{
+		{
+			ID: "plc_suva", Slug: "suva", Kind: catalog.PlaceKindCity, Status: catalog.PlaceStatusActive,
+			CountryCode: "FJ", Coordinates: &catalog.Coordinates{Latitude: -18.1416, Longitude: 178.4419}, Timezone: "Pacific/Fiji",
+		},
+		{
+			ID: "plc_levuka", Slug: "levuka", Kind: catalog.PlaceKindCity, Status: catalog.PlaceStatusActive,
+			CountryCode: "FJ", Coordinates: &catalog.Coordinates{Latitude: -17.6833, Longitude: -179.3000}, Timezone: "Pacific/Fiji",
+		},
+	} {
+		if err := store.UpsertPlace(ctx, city); err != nil {
+			t.Fatal(err)
+		}
+		if err := store.UpsertPlaceName(ctx, catalog.PlaceName{
+			PlaceID: city.ID, LanguageTag: "en", Name: fmt.Sprintf("City %d", index), Kind: "common", Preferred: true,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got, err := store.PlaceBySlug(ctx, fiji.Slug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Bounds == nil || got.Bounds.East-got.Bounds.West > 5 {
+		t.Fatalf("expected date-line-safe city bounds, got %#v", got.Bounds)
+	}
+	if len(got.Timezones) != 1 || got.Timezones[0] != "Pacific/Fiji" {
+		t.Fatalf("unexpected timezones: %#v", got.Timezones)
 	}
 }

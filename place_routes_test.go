@@ -113,6 +113,10 @@ func TestPlaceRoutes(t *testing.T) {
 		mux.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/places/berlin-2950159", nil))
 		if response.Code != http.StatusOK ||
 			!strings.Contains(response.Body.String(), "OpenStreetMap contributors") ||
+			!strings.Contains(response.Body.String(), "data-place-map") ||
+			!strings.Contains(response.Body.String(), "data-map-canvas") ||
+			!strings.Contains(response.Body.String(), "/assets/vendor/maplibre-gl-csp-5.24.0.js") ||
+			!strings.Contains(response.Body.String(), "/assets/js/place-map.js") ||
 			!strings.Contains(response.Body.String(), "data-place-sources") ||
 			!strings.Contains(response.Body.String(), "GeoNames") ||
 			!strings.Contains(response.Body.String(), "CC BY 4.0") {

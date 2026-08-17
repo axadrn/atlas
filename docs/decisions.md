@@ -126,6 +126,13 @@ with required attribution and license tracking. Public tile, geocoding and
 query servers may support development and modest prototypes within their
 policies, but are not permanent production dependencies.
 
+Place pages use a locally pinned MapLibre GL JS renderer with OpenFreeMap as
+the initial vector tile and style provider. The provider URL is isolated from
+place identity and camera data, so Atlas can switch providers or self-host
+without changing place records. Country camera bounds are derived from the
+GeoNames city coordinates Atlas already imports. They frame useful destination
+coverage rather than claiming to be exact political geometry.
+
 This wins because the map data is global, open and community maintained. A
 replaceable provider boundary protects Atlas and the donated OSM
 infrastructure as traffic grows.
@@ -141,6 +148,8 @@ Official operational policies:
 - [OpenStreetMap tile usage](https://operations.osmfoundation.org/policies/tiles/)
 - [OpenStreetMap Nominatim usage](https://operations.osmfoundation.org/policies/nominatim/)
 - [OpenStreetMap attribution](https://osmfoundation.org/wiki/Licence/Attribution_Guidelines)
+- [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/)
+- [OpenFreeMap](https://openfreemap.org/)
 
 ## 8. No universal truth score
 
@@ -216,3 +225,33 @@ automatically. Ambiguous name and location matches require review.
 
 Reconsider matching rules as real provider overlap is measured. Keep Atlas IDs
 stable and merges lossless.
+
+## 12. Keep database access direct until generation pays for itself
+
+**Status:** accepted
+
+Atlas uses Go's `database/sql` package with `modernc.org/sqlite`. Queries live
+in the catalog store and use explicit scanning. Atlas does not add `sqlx` or
+`sqlc` to the initial SQLite application.
+
+This wins because the current query surface is small and direct. `sqlx` mainly
+reduces scanning boilerplate without checking SQL at compile time. `sqlc`
+provides stronger generated types, but its official Go support for SQLite is
+still marked beta. Adding either now would create another abstraction and
+workflow before it solves a measured problem.
+
+The cost is some repetitive `Scan` code and runtime discovery of malformed
+queries. Focused store tests and migration tests cover that risk at the current
+size.
+
+Reconsider `sqlc` before the community read and write model becomes large, when
+repetitive mappings or query defects become common, or when Atlas moves to
+PostgreSQL. A PostgreSQL version should use `pgx/v5`; evaluate `sqlc` with it
+instead of adding `sqlx` as an intermediate migration.
+
+Official references:
+
+- [`database/sql`](https://pkg.go.dev/database/sql)
+- [`sqlc` database and language support](https://docs.sqlc.dev/en/latest/reference/language-support.html)
+- [`sqlx`](https://jmoiron.github.io/sqlx/)
+- [`pgx/v5`](https://pkg.go.dev/github.com/jackc/pgx/v5)

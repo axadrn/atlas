@@ -5,7 +5,6 @@
 (function () {
   const canvas = document.getElementById("globe");
   if (!canvas) return;
-  const caption = document.getElementById("globe-caption");
   const ctx = canvas.getContext("2d");
 
   let CITIES = [];
@@ -112,15 +111,14 @@
     lastX = e.clientX; lastY = e.clientY;
     // 1:1 feel: dragging by the globe radius moves the surface by one radian.
     const d = dx / R;
-    ry += d;
-    vy = vy * 0.7 + d * 0.3;
+    ry -= d;
+    vy = vy * 0.7 - d * 0.3;
     tiltOffset = Math.min(0.35, Math.max(-0.35, tiltOffset + dy / R * 0.6));
   });
   canvas.addEventListener("pointerup", () => { dragging = false; });
   canvas.addEventListener("pointerleave", () => { mouseX = mouseY = -1; });
   canvas.addEventListener("click", () => {
-    if (hovered >= 0 && caption) {
-      caption.textContent = CITIES[hovered][0] + ". " + CITIES[hovered][3];
+    if (hovered >= 0) {
       window.location.href = "/places/" + encodeURIComponent(CITIES[hovered][4]);
     }
   });

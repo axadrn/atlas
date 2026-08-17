@@ -177,8 +177,7 @@ job and retains its own provenance and license.
 | Source | Atlas use | Initial refresh target |
 | --- | --- | --- |
 | GeoNames `cities5000` | Place seed, names, coordinates, time zones and approximate population | Weekly snapshot |
-| Natural Earth | Country boundaries, country centers and low-zoom map geometry | On upstream release |
-| OpenStreetMap | Interactive maps, detailed boundaries and later points of interest | Provider tiles live; imported extracts daily or weekly |
+| OpenStreetMap | Interactive maps, visible boundaries and later points of interest | Provider tiles live; imported extracts daily or weekly |
 | Wikidata | Cross-source identifiers, localized metadata and links to suitable media | Weekly enrichment |
 | Wikimedia Commons | Optional place images with per-file creator and license metadata | Revalidate metadata every 30 days |
 | Community observations | Costs, experiences and practical local knowledge | Append immediately; aggregate on a scheduled window |
@@ -198,7 +197,6 @@ area. Atlas must not present one of these as another.
 Official references:
 
 - [GeoNames data dumps](https://download.geonames.org/export/dump/)
-- [Natural Earth terms](https://www.naturalearthdata.com/about/terms-of-use/)
 - [OpenStreetMap planet and extracts](https://planet.openstreetmap.org/)
 - [Wikidata data access](https://www.wikidata.org/wiki/Help:Data_access)
 - [Wikimedia Commons reuse](https://commons.wikimedia.org/wiki/Commons:Reusing_content_outside_Wikimedia)
@@ -240,11 +238,12 @@ Atlas must:
 - prefer scheduled extracts or a dedicated provider for production imports;
 - keep data with incompatible licenses separate when necessary.
 
-Country maps are not derived from city coordinates. The current GeoNames
-country registry does not provide the boundary geometry used by Atlas, so
-country map pages wait for the Natural Earth boundary importer. Guessing a
-country extent from its imported cities would omit islands and sparsely
-populated areas.
+Country map cameras are derived from the imported GeoNames city coordinates.
+This keeps the initial stack small and frames the populated destinations Atlas
+actually exposes. These bounds are not exact political geometry and may omit
+unpopulated islands or sparsely populated extremes. Add a dedicated boundary
+dataset only when a product feature needs exact polygons, such as choropleths,
+country hit testing or boundary downloads.
 
 ### Place images
 

@@ -24,12 +24,12 @@ func withSecurityHeaders(next http.Handler) http.Handler {
 		policy := []string{
 			"default-src 'none'",
 			"base-uri 'none'",
-			"connect-src 'self'",
+			"connect-src 'self' https://tiles.openfreemap.org",
 			"font-src 'self' https://fonts.gstatic.com",
 			"form-action 'self'",
 			"frame-ancestors 'none'",
-			"frame-src https://www.openstreetmap.org",
-			"img-src 'self' data:",
+			"frame-src 'none'",
+			"img-src 'self' data: blob:",
 			"manifest-src 'self'",
 			"media-src 'self'",
 			"object-src 'none'",
@@ -37,7 +37,7 @@ func withSecurityHeaders(next http.Handler) http.Handler {
 			"script-src-attr 'none'",
 			"style-src 'self' https://fonts.googleapis.com",
 			"style-src-attr 'unsafe-inline'",
-			"worker-src 'self' blob:",
+			"worker-src 'self'",
 		}
 		if os.Getenv("GO_ENV") == "production" {
 			policy = append(policy, "upgrade-insecure-requests")

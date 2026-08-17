@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math"
+	"sort"
 	"strings"
 )
 
@@ -125,8 +127,17 @@ type PlaceSummary struct {
 	Kind        PlaceKind    `json:"kind"`
 	CountryCode string       `json:"country_code,omitempty"`
 	Coordinates *Coordinates `json:"coordinates,omitempty"`
+	Bounds      *Bounds      `json:"bounds,omitempty"`
 	Timezone    string       `json:"timezone,omitempty"`
+	Timezones   []string     `json:"timezones,omitempty"`
 	Population  *int64       `json:"population,omitempty"`
+}
+
+type Bounds struct {
+	West  float64 `json:"west"`
+	South float64 `json:"south"`
+	East  float64 `json:"east"`
+	North float64 `json:"north"`
 }
 
 type SourceAttribution struct {
@@ -278,7 +289,98 @@ func (s *Store) PlaceBySlug(ctx context.Context, slug string) (PlaceSummary, err
 	if err != nil {
 		return PlaceSummary{}, fmt.Errorf("get place by slug: %w", err)
 	}
+	if place.Kind == PlaceKindCountry || place.Kind == PlaceKindTerritory {
+		place.Bounds, place.Timezones, err = s.countryMapData(ctx, place.CountryCode)
+		if err != nil {
+			return PlaceSummary{}, err
+		}
+	}
 	return place, nil
+}
+
+func (s *Store) countryMapData(ctx context.Context, countryCode string) (*Bounds, []string, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT longitude, latitude, COALESCE(timezone, '')
+		FROM places
+		WHERE country_code = ?
+			AND kind IN ('city', 'metro')
+			AND status = 'active'
+			AND longitude IS NOT NULL
+			AND latitude IS NOT NULL
+	`, countryCode)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get country map data: %w", err)
+	}
+	defer rows.Close()
+
+	longitudes := make([]float64, 0, 64)
+	south := math.Inf(1)
+	north := math.Inf(-1)
+	timezoneSet := make(map[string]struct{})
+	for rows.Next() {
+		var longitude, latitude float64
+		var timezone string
+		if err := rows.Scan(&longitude, &latitude, &timezone); err != nil {
+			return nil, nil, fmt.Errorf("scan country map data: %w", err)
+		}
+		longitudes = append(longitudes, longitude)
+		south = min(south, latitude)
+		north = max(north, latitude)
+		if timezone != "" {
+			timezoneSet[timezone] = struct{}{}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("read country map data: %w", err)
+	}
+
+	timezones := make([]string, 0, len(timezoneSet))
+	for timezone := range timezoneSet {
+		timezones = append(timezones, timezone)
+	}
+	sort.Strings(timezones)
+	if len(longitudes) == 0 {
+		return nil, timezones, nil
+	}
+
+	west, east := minimalLongitudeRange(longitudes)
+	if south == north {
+		south = max(-90, south-0.5)
+		north = min(90, north+0.5)
+	}
+	return &Bounds{West: west, South: south, East: east, North: north}, timezones, nil
+}
+
+func minimalLongitudeRange(longitudes []float64) (float64, float64) {
+	normalized := make([]float64, len(longitudes))
+	for index, longitude := range longitudes {
+		normalized[index] = math.Mod(longitude+360, 360)
+	}
+	sort.Float64s(normalized)
+
+	largestGap := -1.0
+	largestGapIndex := 0
+	for index, longitude := range normalized {
+		next := normalized[(index+1)%len(normalized)]
+		if index == len(normalized)-1 {
+			next += 360
+		}
+		if gap := next - longitude; gap > largestGap {
+			largestGap = gap
+			largestGapIndex = index
+		}
+	}
+
+	west := normalized[(largestGapIndex+1)%len(normalized)]
+	if west >= 180 {
+		west -= 360
+	}
+	east := west + 360 - largestGap
+	if east == west {
+		west -= 0.5
+		east += 0.5
+	}
+	return west, east
 }
 
 func (s *Store) SourcesForPlace(ctx context.Context, placeID string) ([]SourceAttribution, error) {
@@ -479,8 +581,8 @@ func (s *Store) UpsertExternalReference(ctx context.Context, ref ExternalReferen
 		INSERT INTO external_references (
 			provider, external_id, place_id, source_snapshot_id
 		) VALUES (?, ?, ?, NULLIF(?, ''))
-		ON CONFLICT(provider, external_id) DO UPDATE SET
-			place_id = excluded.place_id,
+		ON CONFLICT(place_id, provider) DO UPDATE SET
+			external_id = excluded.external_id,
 			source_snapshot_id = excluded.source_snapshot_id
 	`, ref.Provider, ref.ExternalID, ref.PlaceID, ref.SourceSnapshotID)
 	if err != nil {
