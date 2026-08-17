@@ -158,6 +158,67 @@ full event-sourcing architecture.
 Atlas treats external data as imported and replaceable, never as an invisible
 dependency.
 
+### Source roles
+
+No single upstream is the Atlas geography database. Each source has a narrow
+job and retains its own provenance and license.
+
+| Source | Atlas use | Initial refresh target |
+| --- | --- | --- |
+| GeoNames `cities5000` | Place seed, names, coordinates, time zones and approximate population | Weekly snapshot |
+| Natural Earth | Country boundaries, country centers and low-zoom map geometry | On upstream release |
+| OpenStreetMap | Interactive maps, detailed boundaries and later points of interest | Provider tiles live; imported extracts daily or weekly |
+| Wikidata | Cross-source identifiers, localized metadata and links to suitable media | Weekly enrichment |
+| Wikimedia Commons | Optional place images with per-file creator and license metadata | Revalidate metadata every 30 days |
+| Community observations | Costs, experiences and practical local knowledge | Append immediately; aggregate on a scheduled window |
+
+GeoNames is a global geographical gazetteer assembled from many upstream
+sources and community corrections. Its free dumps use CC BY 4.0 and are
+provided without a guarantee of accuracy, timeliness or completeness.
+`cities5000` contains populated places over 5,000 people plus selected
+administrative seats. It is an excellent global bootstrap, not an authority
+for every metric and not the final Atlas place taxonomy.
+
+Country and city population require different follow-up sources. Country
+population should use an authoritative statistical source such as the World
+Bank or UN. City population must distinguish city proper, urban area and metro
+area. Atlas must not present one of these as another.
+
+Official references:
+
+- [GeoNames data dumps](https://download.geonames.org/export/dump/)
+- [Natural Earth terms](https://www.naturalearthdata.com/about/terms-of-use/)
+- [OpenStreetMap planet and extracts](https://planet.openstreetmap.org/)
+- [Wikidata data access](https://www.wikidata.org/wiki/Help:Data_access)
+- [Wikimedia Commons reuse](https://commons.wikimedia.org/wiki/Commons:Reusing_content_outside_Wikimedia)
+
+### Refresh policy
+
+Public page requests do not fetch upstream data. Import jobs download outside
+the database transaction, validate the complete input, calculate a checksum,
+record a source snapshot and atomically publish the normalized result. A failed
+job leaves the last good snapshot active.
+
+Refresh frequency follows how quickly a fact changes and how expensive or
+risky it is to obtain. The upstream publication frequency is a maximum, not a
+requirement to import that often. GeoNames publishes daily files, but a weekly
+full snapshot is enough for the initial Atlas place catalog. Daily
+modification and deletion feeds become useful when the catalog importer can
+reconcile removed and reclassified places safely.
+
+Every public value eventually exposes:
+
+- source and publisher;
+- upstream record or dataset;
+- license;
+- observation or effective date when available;
+- Atlas retrieval time;
+- method, sample size and uncertainty when the value is aggregated.
+
+Freshness is a product state, not a silent overwrite. Values may be current,
+due for refresh, stale or unavailable. The application keeps serving the last
+known value with its date unless policy marks it unsafe to publish.
+
 OpenStreetMap is suitable for maps, geography and later points of interest.
 Atlas must:
 
@@ -167,6 +228,24 @@ Atlas must:
 - use switchable tile and geocoding providers;
 - prefer scheduled extracts or a dedicated provider for production imports;
 - keep data with incompatible licenses separate when necessary.
+
+Country maps are not derived from city coordinates. The current GeoNames
+country registry does not provide the boundary geometry used by Atlas, so
+country map pages wait for the Natural Earth boundary importer. Guessing a
+country extent from its imported cities would omit islands and sparsely
+populated areas.
+
+### Place images
+
+An image is optional. A wrong, generic or illegally reused image is worse than
+a strong map and useful data. The initial enrichment source is Wikimedia
+Commons, usually discovered through a Wikidata entity. Atlas stores the file
+identifier, original URL, creator, license, license URL, source page and
+retrieval time. The interface renders that attribution with the image.
+
+Atlas never scrapes image search engines or assumes that a Wikipedia image is
+automatically reusable. Community uploads come later and require explicit
+rights confirmation, moderation and takedown handling.
 
 Weather, exchange rates and other machine-measured data should be imported
 automatically. Asking people to report data that a reliable machine source can

@@ -177,3 +177,24 @@ requires explicit review before any secondary use.
 
 Reconsider individual tools based on demand, risk and maintenance cost. Keep
 the separation between public community knowledge and private user workflows.
+
+## 10. Snapshot external data instead of live page dependencies
+
+**Status:** accepted
+
+Atlas imports external datasets into a normalized read model. Public page
+requests do not depend on GeoNames, Wikidata, OpenStreetMap data APIs or other
+upstreams being available at that moment.
+
+This wins because checksummed snapshots are fast, reproducible, cacheable and
+auditable. A failed or malformed update cannot partially change public data,
+and an upstream outage does not take Atlas pages down.
+
+The cost is bounded staleness and scheduled importer work. Every value must
+therefore expose its source and relevant date instead of implying that stored
+data is live.
+
+Use live requests only for genuinely fast-changing data where a bounded cache
+and graceful fallback exist, such as weather. Reconsider each refresh interval
+from observed change frequency, upstream limits and product impact. Preserve
+source snapshots and atomic publication.

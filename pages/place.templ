@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"time"
 
 	"atlas/components/badge"
 	"atlas/components/card"
@@ -40,7 +41,15 @@ func osmEmbedURL(coordinates *catalog.Coordinates) string {
 	return "https://www.openstreetmap.org/export/embed.html?" + query.Encode()
 }
 
-templ Place(place catalog.PlaceSummary) {
+func sourceDate(value string) string {
+	retrievedAt, err := time.Parse(time.RFC3339Nano, value)
+	if err != nil {
+		return value
+	}
+	return retrievedAt.Format("2 Jan 2006")
+}
+
+templ Place(place catalog.PlaceSummary, sources []catalog.SourceAttribution) {
 	@layouts.Base(place.Name + " | Atlas") {
 		<main class="mx-auto min-h-dvh w-full max-w-6xl px-5 py-6 sm:px-8 sm:py-10">
 			<header class="mb-10 flex items-center justify-between">
@@ -90,6 +99,42 @@ templ Place(place catalog.PlaceSummary) {
 					}
 				}
 			</div>
+			if len(sources) > 0 {
+				<section class="mt-12 border-t pt-8">
+					<div class="mb-5">
+						<h2 class="font-heading text-2xl font-semibold">Sources</h2>
+						<p class="mt-1 text-sm text-muted-foreground">Where this place record came from and when Atlas retrieved it.</p>
+					</div>
+					<div class="grid gap-4 sm:grid-cols-2">
+						for _, source := range sources {
+							@card.Card(card.Props{Size: card.SizeSm}) {
+								@card.Header() {
+									@card.Title() {
+										<a class="underline-offset-4 hover:underline" href={ templ.SafeURL(source.HomepageURL) } target="_blank" rel="noreferrer">{ source.Name }</a>
+									}
+									@card.Description() {
+										Published by { source.Publisher }
+									}
+									@card.Action() {
+										@badge.Badge(badge.Props{Variant: badge.VariantOutline}) {
+											{ source.LicenseName }
+										}
+									}
+								}
+								@card.Content(card.ContentProps{Class: "space-y-2 text-xs text-muted-foreground"}) {
+									<p>Imported { sourceDate(source.RetrievedAt) }</p>
+									<p class="flex flex-wrap gap-x-3 gap-y-1">
+										<a class="underline underline-offset-2" href={ templ.SafeURL(source.OriginURL) } target="_blank" rel="noreferrer">Exact dataset</a>
+										if source.LicenseURL != "" {
+											<a class="underline underline-offset-2" href={ templ.SafeURL(source.LicenseURL) } target="_blank" rel="noreferrer">License</a>
+										}
+									</p>
+								}
+							}
+						}
+					</div>
+				</section>
+			}
 		</main>
 	}
 }

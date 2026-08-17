@@ -84,7 +84,13 @@ func setupPlaceRoutes(mux *http.ServeMux, store *catalog.Store) {
 			http.Error(w, "Could not load this place.", http.StatusInternalServerError)
 			return
 		}
-		templ.Handler(pages.Place(place)).ServeHTTP(w, r)
+		sources, err := store.SourcesForPlace(r.Context(), place.ID)
+		if err != nil {
+			log.Printf("place sources: %v", err)
+			http.Error(w, "Could not load this place.", http.StatusInternalServerError)
+			return
+		}
+		templ.Handler(pages.Place(place, sources)).ServeHTTP(w, r)
 	})
 }
 

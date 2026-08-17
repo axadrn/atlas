@@ -129,6 +129,17 @@ type PlaceSummary struct {
 	Population  *int64       `json:"population,omitempty"`
 }
 
+type SourceAttribution struct {
+	Name        string
+	Publisher   string
+	HomepageURL string
+	LicenseName string
+	LicenseURL  string
+	OriginURL   string
+	Version     string
+	RetrievedAt string
+}
+
 func (s *Store) SearchPlaces(ctx context.Context, query string, limit int) ([]PlaceSummary, error) {
 	query = strings.TrimSpace(query)
 	if query == "" {
@@ -268,6 +279,51 @@ func (s *Store) PlaceBySlug(ctx context.Context, slug string) (PlaceSummary, err
 		return PlaceSummary{}, fmt.Errorf("get place by slug: %w", err)
 	}
 	return place, nil
+}
+
+func (s *Store) SourcesForPlace(ctx context.Context, placeID string) ([]SourceAttribution, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT DISTINCT
+			s.name,
+			s.publisher,
+			s.homepage_url,
+			s.license_name,
+			COALESCE(s.license_url, ''),
+			ss.origin_url,
+			COALESCE(ss.version, ''),
+			ss.retrieved_at
+		FROM external_references er
+		JOIN source_snapshots ss ON ss.id = er.source_snapshot_id
+		JOIN sources s ON s.id = ss.source_id
+		WHERE er.place_id = ?
+		ORDER BY s.name COLLATE NOCASE, ss.retrieved_at DESC
+	`, placeID)
+	if err != nil {
+		return nil, fmt.Errorf("list place sources: %w", err)
+	}
+	defer rows.Close()
+
+	sources := make([]SourceAttribution, 0, 2)
+	for rows.Next() {
+		var source SourceAttribution
+		if err := rows.Scan(
+			&source.Name,
+			&source.Publisher,
+			&source.HomepageURL,
+			&source.LicenseName,
+			&source.LicenseURL,
+			&source.OriginURL,
+			&source.Version,
+			&source.RetrievedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan place source: %w", err)
+		}
+		sources = append(sources, source)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read place sources: %w", err)
+	}
+	return sources, nil
 }
 
 type rowScanner interface {

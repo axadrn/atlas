@@ -46,6 +46,33 @@ func TestPlaceRoutes(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	if err := store.UpsertSource(ctx, catalog.Source{
+		ID:          "src_geonames_test",
+		Name:        "GeoNames",
+		Publisher:   "GeoNames",
+		HomepageURL: "https://www.geonames.org/",
+		LicenseName: "CC BY 4.0",
+		LicenseURL:  "https://creativecommons.org/licenses/by/4.0/",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.AddSourceSnapshot(ctx, catalog.SourceSnapshot{
+		ID:             "snp_geonames_test",
+		SourceID:       "src_geonames_test",
+		RetrievedAt:    "2026-08-17T12:00:00Z",
+		ChecksumSHA256: strings.Repeat("a", 64),
+		OriginURL:      "https://download.geonames.org/export/dump/cities5000.zip",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.UpsertExternalReference(ctx, catalog.ExternalReference{
+		Provider:         "geonames",
+		ExternalID:       "2950159",
+		PlaceID:          place.ID,
+		SourceSnapshotID: "snp_geonames_test",
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	mux := http.NewServeMux()
 	setupPlaceRoutes(mux, store)
@@ -84,7 +111,10 @@ func TestPlaceRoutes(t *testing.T) {
 	t.Run("place page", func(t *testing.T) {
 		response := httptest.NewRecorder()
 		mux.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/places/berlin-2950159", nil))
-		if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "OpenStreetMap contributors") {
+		if response.Code != http.StatusOK ||
+			!strings.Contains(response.Body.String(), "OpenStreetMap contributors") ||
+			!strings.Contains(response.Body.String(), "GeoNames") ||
+			!strings.Contains(response.Body.String(), "CC BY 4.0") {
 			t.Fatalf("unexpected response: %d %s", response.Code, response.Body.String())
 		}
 	})
