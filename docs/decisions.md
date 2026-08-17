@@ -198,3 +198,21 @@ Use live requests only for genuinely fast-changing data where a bounded cache
 and graceful fallback exist, such as weather. Reconsider each refresh interval
 from observed change frequency, upstream limits and product impact. Preserve
 source snapshots and atomic publication.
+
+## 11. Atlas owns place identity
+
+**Status:** accepted
+
+Every place has a stable Atlas ID. Provider IDs from GeoNames, OpenStreetMap,
+Wikidata and future sources are replaceable external references. Community
+records reference only the Atlas ID.
+
+This wins because changing a source or merging a duplicate must not break
+ratings, contributions, saved places or URLs. A confirmed merge keeps a small
+redirect record from the old Atlas ID to the surviving one.
+
+The cost is a careful matching step for each new provider. Exact IDs can match
+automatically. Ambiguous name and location matches require review.
+
+Reconsider matching rules as real provider overlap is measured. Keep Atlas IDs
+stable and merges lossless.

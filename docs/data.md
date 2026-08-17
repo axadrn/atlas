@@ -84,11 +84,22 @@ The exact SQL schema will evolve, but these concepts must remain distinct.
 - `place_names`: localized and historical names;
 - `external_references`: identifiers from GeoNames, OpenStreetMap and other
   providers;
+- `place_redirects`: old Atlas IDs retained after confirmed duplicate merges;
 - `place_relations`: containment, metro membership and disputed relationships.
 
 Slugs and display names are not identifiers. Boundaries and disputed places
 retain their source and worldview instead of pretending there is one neutral
 map.
+
+`places.id` is the stable Atlas identity. Ratings, observations, saved places
+and future community records reference this ID, never a provider ID. GeoNames,
+OpenStreetMap, Wikidata and future IDs stay in `external_references` and can be
+added or replaced without moving community data.
+
+Imports match exact external IDs first. Ambiguous matches are reviewed instead
+of being merged by name alone. When two Atlas records are confirmed as the
+same place, `place_redirects` keeps the old ID resolvable so existing links and
+contributions do not become orphaned.
 
 ### Sources and evidence
 
