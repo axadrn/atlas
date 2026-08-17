@@ -35,6 +35,8 @@ RUN apk add --no-cache ca-certificates
 
 ENV GO_ENV=production
 ENV PORT=8090
+# Mount persistent storage and set DATABASE_PATH to a path inside that volume.
+ENV DATABASE_PATH=/data/atlas.db
 # NOINDEX is intentionally unset: the default is noindex on.
 # Set NOINDEX=0 in the deploy env to allow search engines.
 

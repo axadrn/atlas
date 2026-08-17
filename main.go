@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -13,10 +14,18 @@ import (
 	"github.com/a-h/templ"
 
 	"atlas/components"
+	"atlas/internal/database"
 	"atlas/pages"
 )
 
 func main() {
+	db, err := database.Open(context.Background(), databasePath())
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
 	mux := http.NewServeMux()
 	setupAssetsRoutes(mux)
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
@@ -45,6 +54,13 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func databasePath() string {
+	if path := os.Getenv("DATABASE_PATH"); path != "" {
+		return path
+	}
+	return "atlas.db"
 }
 
 // githubStars returns the repo star count, cached for 15 minutes, so the
