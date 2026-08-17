@@ -44,8 +44,8 @@ func (s *Store) UpsertPlace(ctx context.Context, place Place) error {
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO places (
 			id, slug, kind, status, parent_id, country_code,
-			latitude, longitude, timezone, population
-		) VALUES (?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, NULLIF(?, ''), ?)
+			latitude, longitude, timezone, population, is_listed
+		) VALUES (?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, NULLIF(?, ''), ?, 1)
 		ON CONFLICT(id) DO UPDATE SET
 			slug = excluded.slug,
 			kind = excluded.kind,
@@ -56,6 +56,7 @@ func (s *Store) UpsertPlace(ctx context.Context, place Place) error {
 			longitude = excluded.longitude,
 			timezone = excluded.timezone,
 			population = excluded.population,
+			is_listed = 1,
 			updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
 	`,
 		place.ID,
@@ -71,6 +72,31 @@ func (s *Store) UpsertPlace(ctx context.Context, place Place) error {
 	)
 	if err != nil {
 		return fmt.Errorf("upsert place: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) UnlistProviderPlaces(ctx context.Context, provider string, kind PlaceKind) error {
+	if strings.TrimSpace(provider) == "" {
+		return errors.New("provider is required")
+	}
+	if !kind.valid() {
+		return fmt.Errorf("invalid place kind %q", kind)
+	}
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE places
+		SET is_listed = 0,
+			updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+		WHERE kind = ?
+			AND is_listed = 1
+			AND EXISTS (
+				SELECT 1
+				FROM external_references er
+				WHERE er.place_id = places.id AND er.provider = ?
+			)
+	`, kind, provider)
+	if err != nil {
+		return fmt.Errorf("unlist provider places: %w", err)
 	}
 	return nil
 }
@@ -179,6 +205,7 @@ func (s *Store) SearchPlaces(ctx context.Context, query string, limit int) ([]Pl
 			p.population
 		FROM places p
 		WHERE p.status = 'active'
+			AND p.is_listed = 1
 			AND p.kind IN ('country', 'territory', 'city', 'metro')
 			AND EXISTS (
 				SELECT 1
@@ -236,6 +263,7 @@ func (s *Store) MapCities(ctx context.Context, limit int) ([]PlaceSummary, error
 			p.population
 		FROM places p
 		WHERE p.status = 'active'
+			AND p.is_listed = 1
 			AND p.kind IN ('city', 'metro')
 			AND p.latitude IS NOT NULL
 			AND p.longitude IS NOT NULL
@@ -280,7 +308,7 @@ func (s *Store) PlaceBySlug(ctx context.Context, slug string) (PlaceSummary, err
 			COALESCE(p.timezone, ''),
 			p.population
 		FROM places p
-		WHERE p.slug = ? AND p.status = 'active'
+		WHERE p.slug = ? AND p.status = 'active' AND p.is_listed = 1
 	`, slug)
 	place, err := scanPlaceSummary(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -305,6 +333,7 @@ func (s *Store) countryMapData(ctx context.Context, countryCode string) (*Bounds
 		WHERE country_code = ?
 			AND kind IN ('city', 'metro')
 			AND status = 'active'
+			AND is_listed = 1
 			AND longitude IS NOT NULL
 			AND latitude IS NOT NULL
 	`, countryCode)

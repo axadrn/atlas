@@ -326,6 +326,9 @@ func importCities(
 		return 0, 0, fmt.Errorf("open GeoNames cities file: %w", err)
 	}
 	defer reader.Close()
+	if err := store.UnlistProviderPlaces(ctx, "geonames", catalog.PlaceKindCity); err != nil {
+		return 0, 0, err
+	}
 
 	scanner := bufio.NewScanner(reader)
 	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
@@ -334,7 +337,7 @@ func importCities(
 		if len(fields) < 19 {
 			return 0, 0, fmt.Errorf("parse GeoNames cities line %d: expected at least 19 fields, got %d", lineNumber, len(fields))
 		}
-		if fields[6] != "P" {
+		if fields[6] != "P" || !importableCityFeatureCode(fields[7]) {
 			skipped++
 			continue
 		}
@@ -393,6 +396,16 @@ func importCities(
 		return 0, 0, fmt.Errorf("read GeoNames cities: %w", err)
 	}
 	return imported, skipped, nil
+}
+
+func importableCityFeatureCode(code string) bool {
+	switch code {
+	case "PPL", "PPLA", "PPLA2", "PPLA3", "PPLA4", "PPLA5",
+		"PPLC", "PPLCD", "PPLF", "PPLG", "PPLL", "PPLR", "STLMT":
+		return true
+	default:
+		return false
+	}
 }
 
 func upsertNamedPlace(

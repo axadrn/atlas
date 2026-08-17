@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"atlas/internal/catalog"
 	"atlas/internal/database"
 	"atlas/internal/importer/geonames"
 )
@@ -25,6 +26,7 @@ func TestImportIsAtomicAndIdempotent(t *testing.T) {
 	cityBody := citiesArchive(t, strings.Join([]string{
 		cityLine("2950159", "Berlin", "Berlin", "52.52437", "13.41053", "DE", "3426354", "Europe/Berlin"),
 		cityLine("1850147", "Tokyo", "Tokyo", "35.6895", "139.69171", "JP", "8336599", "Asia/Tokyo"),
+		cityLine("2911285", "Wandsbek", "Wandsbek", "53.58334", "10.08305", "DE", "411422", "Europe/Berlin", "PPLX"),
 	}, "\n"))
 
 	ctx := context.Background()
@@ -47,7 +49,7 @@ func TestImportIsAtomicAndIdempotent(t *testing.T) {
 		if err != nil {
 			t.Fatalf("run %d: %v", run, err)
 		}
-		if stats.Countries != 2 || stats.Cities != 2 || stats.Skipped != 0 {
+		if stats.Countries != 2 || stats.Cities != 2 || stats.Skipped != 1 {
 			t.Fatalf("run %d: unexpected stats %#v", run, stats)
 		}
 	}
@@ -96,6 +98,64 @@ func TestImportRollsBackMalformedData(t *testing.T) {
 	}
 	assertCount(t, db, "places", 0)
 	assertCount(t, db, "sources", 0)
+}
+
+func TestImportUnlistsPlacesMissingFromTheCurrentCatalog(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db, err := database.Open(ctx, filepath.Join(t.TempDir(), "atlas.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	countryBody := []byte(countryLine("DE", "Germany", "EU", "2921044", "83536115"))
+	now := func() time.Time { return time.Date(2026, time.August, 17, 12, 0, 0, 0, time.UTC) }
+	firstCities := citiesArchive(t, strings.Join([]string{
+		cityLine("2950159", "Berlin", "Berlin", "52.52437", "13.41053", "DE", "3426354", "Europe/Berlin"),
+		cityLine("2911285", "Wandsbek", "Wandsbek", "53.58334", "10.08305", "DE", "411422", "Europe/Berlin"),
+	}, "\n"))
+	if _, err := geonames.Import(ctx, db, geonames.Options{
+		CountryInfoURL: "https://example.test/countryInfo.txt",
+		CitiesURL:      "https://example.test/cities5000.zip",
+		HTTPClient:     dataClient(countryBody, firstCities),
+		Now:            now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	secondCities := citiesArchive(t, strings.Join([]string{
+		cityLine("2950159", "Berlin", "Berlin", "52.52437", "13.41053", "DE", "3426354", "Europe/Berlin"),
+		cityLine("2911285", "Wandsbek", "Wandsbek", "53.58334", "10.08305", "DE", "411422", "Europe/Berlin", "PPLX"),
+	}, "\n"))
+	if _, err := geonames.Import(ctx, db, geonames.Options{
+		CountryInfoURL: "https://example.test/countryInfo.txt",
+		CitiesURL:      "https://example.test/cities5000.zip",
+		HTTPClient:     dataClient(countryBody, secondCities),
+		Now:            now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var listed int
+	if err := db.QueryRowContext(ctx, `
+		SELECT is_listed
+		FROM places p
+		JOIN external_references er ON er.place_id = p.id
+		WHERE er.provider = 'geonames' AND er.external_id = '2911285'
+	`).Scan(&listed); err != nil {
+		t.Fatal(err)
+	}
+	if listed != 0 {
+		t.Fatalf("expected a reclassified city section to be unlisted, got %d", listed)
+	}
+	results, err := catalog.NewStore(db).SearchPlaces(ctx, "Wandsbek", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 0 {
+		t.Fatalf("expected the unlisted city section to stay out of discovery, got %#v", results)
+	}
 }
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -150,9 +210,14 @@ func cityLine(
 	countryCode string,
 	population string,
 	timezone string,
+	featureCodes ...string,
 ) string {
+	featureCode := "PPLA"
+	if len(featureCodes) > 0 {
+		featureCode = featureCodes[0]
+	}
 	fields := []string{
-		id, name, asciiName, "", latitude, longitude, "P", "PPLA", countryCode,
+		id, name, asciiName, "", latitude, longitude, "P", featureCode, countryCode,
 		"", "", "", "", "", population, "", "", timezone, "2026-08-17",
 	}
 	return strings.Join(fields, "\t")

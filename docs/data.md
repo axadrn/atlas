@@ -187,7 +187,12 @@ sources and community corrections. Its free dumps use CC BY 4.0 and are
 provided without a guarantee of accuracy, timeliness or completeness.
 `cities5000` contains populated places over 5,000 people plus selected
 administrative seats. It is an excellent global bootstrap, not an authority
-for every metric and not the final Atlas place taxonomy.
+for every metric and not the final Atlas place taxonomy. Atlas excludes feature
+codes that explicitly mean a section, historical place, abandoned place or
+destroyed place. Remaining records are discovery candidates, not confirmed
+independent cities. GeoNames administrative-place codes vary between countries,
+so Atlas does not publish a country city directory until a stronger global
+classification layer has been selected and tested.
 
 Country and city population require different follow-up sources. Country
 population should use an authoritative statistical source such as the World
@@ -213,7 +218,9 @@ risky it is to obtain. The upstream publication frequency is a maximum, not a
 requirement to import that often. GeoNames publishes daily files, but a weekly
 full snapshot is enough for the initial Atlas place catalog. Daily
 modification and deletion feeds become useful when the catalog importer can
-reconcile removed and reclassified places safely.
+save meaningful bandwidth. Every full refresh already reconciles removed and
+reclassified places atomically. It keeps their stable Atlas IDs while removing
+them from normal discovery.
 
 Every public value eventually exposes:
 
