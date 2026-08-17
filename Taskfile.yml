@@ -12,7 +12,7 @@ tasks:
   templ:
     desc: Run templ with integrated server and hot reload
     cmds:
-      - templ generate --watch --proxy="http://localhost:{{.PORT}}" --cmd="go run ./main.go" --open-browser=false
+      - templ generate --watch --proxy="http://localhost:{{.PORT}}" --cmd="go run ." --open-browser=false
     env:
       PORT: "{{.PORT}}"
 
