@@ -38,7 +38,7 @@ func main() {
 	fragmentLimiter := newRateLimiter(5, 20)
 	setupPlaceRoutes(mux, store, fragmentLimiter)
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		places, err := store.MapPlaces(r.Context(), 150)
+		places, err := store.MapPlaces(r.Context(), 50)
 		if err != nil {
 			log.Printf("home map places: %v", err)
 			places = []catalog.PlaceSummary{}

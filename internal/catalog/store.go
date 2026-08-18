@@ -67,17 +67,19 @@ func (s *Store) SearchPlaces(ctx context.Context, query string, limit int) ([]Pl
 	return scanPlaces(rows, limit)
 }
 
+// MapPlaces returns the ranked destinations for the landing globe: only the
+// curated hotspots, nothing else.
 func (s *Store) MapPlaces(ctx context.Context, limit int) ([]PlaceSummary, error) {
-	limit = boundedLimit(limit, 150, 500)
+	limit = boundedLimit(limit, 50, 500)
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, slug, name, place_type, parent_id, country_code,
 		       is_destination, latitude, longitude, population, curated_rank
 		FROM places
 		WHERE is_destination = 1
+			AND curated_rank IS NOT NULL
 			AND latitude IS NOT NULL
 			AND longitude IS NOT NULL
-		ORDER BY curated_rank IS NULL, curated_rank,
-			population DESC NULLS LAST, name COLLATE NOCASE
+		ORDER BY curated_rank
 		LIMIT ?
 	`, limit)
 	if err != nil {

@@ -161,9 +161,25 @@
   }
   loadPlaces();
 
+  // A quiet sphere body so the globe reads as a ball, not a point cloud.
+  function drawSphere() {
+    ctx.fillStyle = colMuted;
+    ctx.globalAlpha = 0.06;
+    ctx.beginPath();
+    ctx.arc(CX, CY, R, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 0.2;
+    ctx.strokeStyle = colMuted;
+    ctx.lineWidth = 1 * U;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
   function drawLand() {
     // Depth quantized into alpha buckets so the dots batch into a handful
-    // of paths instead of thousands of draw calls.
+    // of paths instead of thousands of draw calls. Small dots at low alpha
+    // read as a soft land texture, not a dot grid; the hotspots carry the
+    // visual weight.
     const N = 6;
     const buckets = Array.from({ length: N }, () => []);
     for (const v of landVecs) {
@@ -171,11 +187,10 @@
       if (p[2] <= 0.02) continue;
       buckets[Math.min(N - 1, Math.floor(p[2] * N))].push(p);
     }
-    const dot = W / 340;
-    // Muted continents keep the visual weight on the hubs and arcs.
+    const dot = W / 520;
     ctx.fillStyle = colMuted;
     for (let b = 0; b < N; b++) {
-      ctx.globalAlpha = 0.3 + (b / (N - 1)) * 0.6;
+      ctx.globalAlpha = 0.12 + (b / (N - 1)) * 0.24;
       ctx.beginPath();
       for (const p of buckets[b]) {
         ctx.moveTo(p[0] + dot, p[1]);
@@ -205,12 +220,12 @@
     for (let i = 0; i < pts.length; i++) {
       const p = pts[i];
       if (p[2] <= 0) continue;
-      // Ranked destinations pop, the rest stays quiet.
-      const ranked = PLACES[i][5] > 0;
-      const base = ranked ? 3 + p[2] * 1.4 : 1.8 + p[2] * 0.8;
-      const r = (i === hovered ? 5 : base) * U;
+      // Everything on the globe is a curated hotspot; the top ten lead.
+      const top = PLACES[i][5] > 0 && PLACES[i][5] <= 10;
+      const base = top ? 3.4 + p[2] * 1.6 : 2.4 + p[2] * 1.1;
+      const r = (i === hovered ? 5.4 : base) * U;
       ctx.fillStyle = colPrimary;
-      ctx.globalAlpha = (ranked ? 0.7 : 0.35) + 0.3 * p[2];
+      ctx.globalAlpha = 0.7 + 0.3 * p[2];
       ctx.beginPath();
       ctx.arc(p[0], p[1], r, 0, Math.PI * 2);
       ctx.fill();
@@ -266,6 +281,7 @@
 
   function frame() {
     ctx.clearRect(0, 0, W, H);
+    drawSphere();
     drawLand();
     drawArcs();
     drawPlaces();

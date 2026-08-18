@@ -33,11 +33,15 @@ func TestStoreReadsCatalog(t *testing.T) {
 		t.Fatalf("unexpected search results: %#v", results)
 	}
 
+	// The globe only shows curated hotspots: unranked places stay off it.
+	if _, err := db.Exec(`UPDATE places SET curated_rank = 1 WHERE id = 'plc_berlin'`); err != nil {
+		t.Fatal(err)
+	}
 	mapPlaces, err := store.MapPlaces(ctx, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(mapPlaces) != 1 || mapPlaces[0].Coordinates == nil {
+	if len(mapPlaces) != 1 || mapPlaces[0].Name != "Berlin" || mapPlaces[0].Coordinates == nil {
 		t.Fatalf("unexpected map places: %#v", mapPlaces)
 	}
 
