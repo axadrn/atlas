@@ -14,7 +14,7 @@ import (
 )
 
 func TestSecurityHeadersAndScriptNonces(t *testing.T) {
-	handler := withSecurityHeaders(templ.Handler(pages.Home(0, nil)))
+	handler := withSecurityHeaders(templ.Handler(pages.Home(nil)))
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
 
@@ -131,9 +131,9 @@ func TestPWAPublicFiles(t *testing.T) {
 		}
 		body := response.Body.String()
 		if !strings.Contains(body, `request.mode === "navigate"`) ||
-			!strings.Contains(body, `url.pathname.startsWith("/assets/")`) ||
-			strings.Contains(body, `url.pathname.startsWith("/api/")`) {
-			t.Fatal("service worker caching boundary is not restricted to navigation fallback and static assets")
+			!strings.Contains(body, "OFFLINE_ASSETS.indexOf(url.pathname)") ||
+			strings.Contains(body, "atlas-static-v") {
+			t.Fatal("service worker must stay network-first with an offline-only cache fallback")
 		}
 	})
 }
