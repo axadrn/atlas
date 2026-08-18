@@ -151,6 +151,7 @@
             .filter(Boolean)
             .join(" · "),
           place.slug,
+          place.rank || 0,
         ]);
       placeVecs = PLACES.map((place) => toVec(place[1], place[2]));
       for (let i = 0; i < 3; i++) spawnArc();
@@ -204,9 +205,12 @@
     for (let i = 0; i < pts.length; i++) {
       const p = pts[i];
       if (p[2] <= 0) continue;
-      const r = (i === hovered ? 5 : 2.4 + p[2] * 1.2) * U;
+      // Ranked destinations pop, the rest stays quiet.
+      const ranked = PLACES[i][5] > 0;
+      const base = ranked ? 3 + p[2] * 1.4 : 1.8 + p[2] * 0.8;
+      const r = (i === hovered ? 5 : base) * U;
       ctx.fillStyle = colPrimary;
-      ctx.globalAlpha = 0.65 + 0.35 * p[2];
+      ctx.globalAlpha = (ranked ? 0.7 : 0.35) + 0.3 * p[2];
       ctx.beginPath();
       ctx.arc(p[0], p[1], r, 0, Math.PI * 2);
       ctx.fill();

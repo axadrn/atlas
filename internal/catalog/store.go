@@ -22,10 +22,24 @@ func NewStore(db *sql.DB) *Store {
 
 func (s *Store) SearchPlaces(ctx context.Context, query string, limit int) ([]PlaceSummary, error) {
 	query = strings.TrimSpace(query)
-	if query == "" {
-		return []PlaceSummary{}, nil
-	}
 	limit = boundedLimit(limit, 10, 25)
+	// An empty query is the search popup's initial state: show the top
+	// curated destinations instead of nothing.
+	if query == "" {
+		rows, err := s.db.QueryContext(ctx, `
+			SELECT id, slug, name, place_type, parent_id, country_code,
+			       is_destination, latitude, longitude, population, curated_rank
+			FROM places
+			WHERE curated_rank IS NOT NULL
+			ORDER BY curated_rank
+			LIMIT ?
+		`, limit)
+		if err != nil {
+			return nil, fmt.Errorf("list top places: %w", err)
+		}
+		defer rows.Close()
+		return scanPlaces(rows, limit)
+	}
 	pattern := "%" + escapeLike(query) + "%"
 	prefix := escapeLike(query) + "%"
 

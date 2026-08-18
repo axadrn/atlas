@@ -28,6 +28,7 @@ type globePlace struct {
 	Latitude    float64 `json:"latitude"`
 	Longitude   float64 `json:"longitude"`
 	Population  *int64  `json:"population,omitempty"`
+	Rank        *int64  `json:"rank,omitempty"`
 }
 
 func globePlaceData(places []catalog.PlaceSummary) []globePlace {
@@ -43,6 +44,7 @@ func globePlaceData(places []catalog.PlaceSummary) []globePlace {
 			Latitude:    place.Coordinates.Latitude,
 			Longitude:   place.Coordinates.Longitude,
 			Population:  place.Population,
+			Rank:        place.CuratedRank,
 		})
 	}
 	return result

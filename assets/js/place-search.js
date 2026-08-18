@@ -42,6 +42,13 @@
       if (!hasResults) empty.textContent = "No matching place yet.";
     }
 
+    // Queries under two characters resolve to the empty query, which the
+    // server answers with the top curated destinations.
+    function effectiveQuery() {
+      const query = input.value.trim();
+      return query.length < 2 ? "" : query;
+    }
+
     async function search(query) {
       if (requestController) requestController.abort();
       requestController = new AbortController();
@@ -53,7 +60,7 @@
         });
         if (!response.ok) throw new Error("search failed");
         const html = await response.text();
-        if (input.value.trim() === query) showResults(html);
+        if (effectiveQuery() === query) showResults(html);
       } catch (error) {
         if (error.name !== "AbortError") showMessage("Search is temporarily unavailable.");
       }
@@ -61,18 +68,13 @@
 
     input.addEventListener("input", function () {
       clearTimeout(debounceTimer);
-      const query = input.value.trim();
-      if (query.length < 2) {
-        if (requestController) requestController.abort();
-        showMessage("Type at least two characters.");
-        return;
-      }
-
-      showMessage("Searching...");
       debounceTimer = setTimeout(function () {
-        search(query);
+        search(effectiveQuery());
       }, 140);
     });
+
+    // Preload the top destinations so the popup is never empty.
+    search("");
 
     root.addEventListener("combobox-change", function (event) {
       const slug = event.detail && event.detail.values && event.detail.values[0];
