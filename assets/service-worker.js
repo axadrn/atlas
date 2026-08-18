@@ -1,6 +1,9 @@
-const CACHE_NAME = "atlas-static-v4";
+// Minimal service worker: PWA installability plus an offline fallback page.
+// No manual cache versioning. Network always wins; the cache is only used
+// when the network is unreachable, so assets can never go stale.
+const OFFLINE_CACHE = "atlas-offline";
 const OFFLINE_URL = "/offline";
-const PRECACHE = [
+const OFFLINE_ASSETS = [
   OFFLINE_URL,
   "/assets/css/output.css",
   "/assets/icons/app-icon-192.png",
@@ -8,16 +11,19 @@ const PRECACHE = [
 ];
 
 self.addEventListener("install", function (event) {
-  event.waitUntil(caches.open(CACHE_NAME).then(function (cache) {
-    return cache.addAll(PRECACHE);
+  event.waitUntil(caches.open(OFFLINE_CACHE).then(function (cache) {
+    return cache.addAll(OFFLINE_ASSETS.map(function (url) {
+      return new Request(url, { cache: "reload" });
+    }));
   }));
   self.skipWaiting();
 });
 
 self.addEventListener("activate", function (event) {
+  // One-time cleanup of the old versioned caches (atlas-static-*).
   event.waitUntil(caches.keys().then(function (names) {
     return Promise.all(names.filter(function (name) {
-      return name.startsWith("atlas-static-") && name !== CACHE_NAME;
+      return name !== OFFLINE_CACHE;
     }).map(function (name) {
       return caches.delete(name);
     }));
@@ -39,17 +45,11 @@ self.addEventListener("fetch", function (event) {
     return;
   }
 
-  if (!url.pathname.startsWith("/assets/") && !url.pathname.startsWith("/components/")) return;
+  // Only the offline page's own assets get a fallback, and only when
+  // the network fails. Everything else goes straight to the network.
+  if (OFFLINE_ASSETS.indexOf(url.pathname) === -1) return;
 
-  event.respondWith(caches.match(request).then(function (cached) {
-    if (cached) return cached;
-    return fetch(request).then(function (response) {
-      if (!response.ok) return response;
-      const copy = response.clone();
-      caches.open(CACHE_NAME).then(function (cache) {
-        cache.put(request, copy);
-      });
-      return response;
-    });
+  event.respondWith(fetch(request).catch(function () {
+    return caches.match(request);
   }));
 });
