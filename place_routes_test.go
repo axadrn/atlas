@@ -90,17 +90,13 @@ func TestPlaceRoutes(t *testing.T) {
 			!strings.Contains(response.Body.String(), "data-map-canvas") ||
 			!strings.Contains(response.Body.String(), "/assets/vendor/maplibre-gl-csp-5.24.0.js") ||
 			!strings.Contains(response.Body.String(), "/assets/js/place-map.js") ||
-			!strings.Contains(response.Body.String(), `aria-controls="place-sources"`) ||
-			!strings.Contains(response.Body.String(), `data-slot="sheet-content"`) ||
-			!strings.Contains(response.Body.String(), `role="dialog"`) ||
 			!strings.Contains(response.Body.String(), `href="/places/germany"`) ||
 			!strings.Contains(response.Body.String(), `href="/places/mitte-berlin"`) ||
 			!strings.Contains(response.Body.String(), "Neighborhoods") ||
 			!strings.Contains(response.Body.String(), "Germany") ||
-			!strings.Contains(response.Body.String(), "Contribution") ||
-			!strings.Contains(response.Body.String(), "Source record 2950159") ||
-			!strings.Contains(response.Body.String(), "GeoNames") ||
-			!strings.Contains(response.Body.String(), "CC BY 4.0") {
+			!strings.Contains(response.Body.String(), "Sourced public data, updated") ||
+			!strings.Contains(response.Body.String(), `href="/credits"`) ||
+			!strings.Contains(response.Body.String(), "Not in Atlas yet") {
 			t.Fatalf("unexpected response: %d %s", response.Code, response.Body.String())
 		}
 	})

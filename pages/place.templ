@@ -7,10 +7,8 @@ import (
 
 	"atlas/components/badge"
 	"atlas/components/breadcrumb"
-	"atlas/components/button"
 	"atlas/components/card"
 	"atlas/components/icon"
-	"atlas/components/sheet"
 	"atlas/internal/catalog"
 	"atlas/layouts"
 )
@@ -95,6 +93,19 @@ func childSectionDescription(place catalog.PlaceSummary) string {
 	return "Curated destinations in " + place.Name + "."
 }
 
+// missingFacts lists what Atlas does not know about this place yet: sourced
+// fields without data plus the community categories that open with accounts.
+func missingFacts(place catalog.PlaceSummary) []string {
+	var missing []string
+	if place.Population == nil {
+		missing = append(missing, "Population")
+	}
+	if len(place.Timezones) == 0 {
+		missing = append(missing, "Timezone")
+	}
+	return append(missing, "Cost of living", "Internet", "Safety", "Best months")
+}
+
 func curatedRankLabel(rank *int64) string {
 	return fmt.Sprintf("Top destination #%d", *rank)
 }
@@ -172,70 +183,6 @@ templ Place(place catalog.PlaceSummary, ancestors []catalog.PlaceSummary, source
 					<p class="mt-4 max-w-xl text-lg text-muted-foreground">
 						A live place page built from sourced public data. Community signals, costs and practical nomad knowledge come next.
 					</p>
-					if len(sources) > 0 {
-						<div class="mt-5">
-							@sheet.Sheet(sheet.Props{ID: "place-sources"}) {
-								@button.Button(button.Props{
-									Variant:    button.VariantGhost,
-									Size:       button.SizeSm,
-									Class:      "-ml-2 text-muted-foreground",
-									Attributes: sheet.Trigger(ctx),
-								}) {
-									@icon.Database(icon.Props{Class: "size-4"})
-									Sources
-								}
-								@sheet.Content(sheet.ContentProps{Class: "w-full overflow-y-auto sm:max-w-md"}) {
-									@sheet.Header() {
-										@sheet.Title(sheet.TitleProps{Class: "font-heading text-xl font-semibold"}) {
-											Sources
-										}
-										@sheet.Description() {
-											What each provider contributed to this place. Atlas may select, normalize and combine source data.
-										}
-									}
-									<div class="space-y-4 px-4 pb-6">
-										for _, source := range sources {
-											<div class="space-y-3 rounded-xl border bg-card p-4">
-												<div class="flex items-start justify-between gap-3">
-													<a class="font-medium underline-offset-4 hover:underline" href={ templ.SafeURL(source.HomepageURL) } target="_blank" rel="noreferrer">{ source.Name }</a>
-													@badge.Badge(badge.Props{Variant: badge.VariantOutline}) {
-														{ source.LicenseName }
-													}
-												</div>
-												<div>
-													<p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Contribution</p>
-													<p class="mt-1 text-sm">{ source.Contribution }</p>
-												</div>
-												<p class="text-xs text-muted-foreground">Retrieved { sourceDate(source.RetrievedAt) }</p>
-												<p class="flex flex-wrap gap-x-3 gap-y-1 text-xs">
-													if source.RecordURL != "" {
-														<a class="underline underline-offset-2" href={ templ.SafeURL(source.RecordURL) } target="_blank" rel="noreferrer">
-															if source.ExternalID != "" {
-																Source record { source.ExternalID }
-															} else {
-																Source map
-															}
-														</a>
-													}
-													if source.LicenseURL != "" {
-														<a class="underline underline-offset-2" href={ templ.SafeURL(source.LicenseURL) } target="_blank" rel="noreferrer">License</a>
-													}
-												</p>
-											</div>
-										}
-										<div class="space-y-3 rounded-xl border bg-card p-4">
-											<p class="font-medium">Map</p>
-											<p class="text-sm">Map data from OpenStreetMap contributors. Vector tiles and styles delivered by OpenFreeMap.</p>
-											<p class="flex flex-wrap gap-x-3 gap-y-1 text-xs">
-												<a class="underline underline-offset-2" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap license</a>
-												<a class="underline underline-offset-2" href="https://openfreemap.org/" target="_blank" rel="noreferrer">OpenFreeMap</a>
-											</p>
-										</div>
-									</div>
-								}
-							}
-						</div>
-					}
 					@card.Card(card.Props{Size: card.SizeSm, Class: "mt-10 gap-0 overflow-hidden rounded-2xl py-0 shadow-sm"}) {
 						@card.Content(card.ContentProps{Class: "grid grid-cols-2 divide-x p-0"}) {
 							<div class="p-5">
@@ -255,10 +202,23 @@ templ Place(place catalog.PlaceSummary, ancestors []catalog.PlaceSummary, source
 						}
 						if freshness := dataFreshness(sources); freshness != "" {
 							@card.Footer(card.FooterProps{Class: "border-t py-3 text-xs text-muted-foreground"}) {
-								{ freshness }
+								<a href="/credits" class="underline-offset-2 hover:underline">{ freshness }</a>
 							}
 						}
 					}
+					<div class="mt-4 rounded-2xl border border-dashed p-5">
+						<p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Not in Atlas yet</p>
+						<div class="mt-3 flex flex-wrap gap-2">
+							for _, fact := range missingFacts(place) {
+								@badge.Badge(badge.Props{Variant: badge.VariantOutline}) {
+									{ fact }
+								}
+							}
+						</div>
+						<p class="mt-3 text-sm text-muted-foreground">
+							Atlas only shows what it can source. Community contributions open these up once accounts land.
+						</p>
+					</div>
 				</section>
 				if place.Bounds != nil || place.Coordinates != nil {
 					@card.Card(card.Props{Class: "gap-0 overflow-hidden rounded-2xl py-0 shadow-sm"}) {
