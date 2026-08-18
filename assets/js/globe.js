@@ -133,19 +133,16 @@
     arcs.push({ a: placeVecs[a], b: placeVecs[b], t: 0, speed: 0.004 + Math.random() * 0.003 });
   }
 
-  async function loadPlaces() {
+  function loadPlaces() {
     try {
-      const response = await fetch("/api/map/places?limit=150", {
-        headers: { Accept: "application/json" },
-      });
-      if (!response.ok) return;
-      const data = await response.json();
-      PLACES = (data.results || [])
-        .filter((place) => place.coordinates)
+      const element = document.getElementById("atlas-globe-places");
+      if (!element) return;
+      const data = JSON.parse(element.textContent);
+      PLACES = data
         .map((place) => [
           place.name,
-          place.coordinates.latitude,
-          place.coordinates.longitude,
+          place.latitude,
+          place.longitude,
           [place.country_code, place.population ? new Intl.NumberFormat().format(place.population) + " people" : ""]
             .filter(Boolean)
             .join(" · "),
@@ -154,7 +151,7 @@
       placeVecs = PLACES.map((place) => toVec(place[1], place[2]));
       for (let i = 0; i < 3; i++) spawnArc();
     } catch (_) {
-      // The globe remains interactive even when map data is unavailable.
+      // The globe remains interactive when embedded place data is unavailable.
     }
   }
   loadPlaces();

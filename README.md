@@ -9,6 +9,7 @@ Goal, said out loud: become the biggest digital nomad platform in the world.
 ## What it is
 
 - A living world map built by perpetual travelers and digital nomads
+- An installable mobile-first web app that works from the Home Screen
 - Transparent data for countries, cities and life on the ground
 - Structured observations, personal experience and sourced claims kept separate
 - Community governed, openly auditable and designed to resist manipulation
@@ -33,6 +34,7 @@ Goal, said out loud: become the biggest digital nomad platform in the world.
 - shadcn-templ
 - htmx
 - SQLite
+- Progressive Web App
 
 One binary. One box. That is the whole infrastructure.
 

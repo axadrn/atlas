@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -64,26 +63,13 @@ func TestPlaceRoutes(t *testing.T) {
 	mux := http.NewServeMux()
 	setupPlaceRoutes(mux, store)
 
-	t.Run("search", func(t *testing.T) {
-		response := httptest.NewRecorder()
-		mux.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/places?q=ber", nil))
-		if response.Code != http.StatusOK {
-			t.Fatalf("expected 200, got %d: %s", response.Code, response.Body.String())
-		}
-		var body placeResults
-		if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
-			t.Fatal(err)
-		}
-		if len(body.Results) != 1 || body.Results[0].Name != "Berlin" {
-			t.Fatalf("unexpected body: %#v", body)
-		}
-	})
-
-	t.Run("map", func(t *testing.T) {
-		response := httptest.NewRecorder()
-		mux.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/map/places?limit=20", nil))
-		if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"latitude":52.52437`) {
-			t.Fatalf("unexpected response: %d %s", response.Code, response.Body.String())
+	t.Run("unversioned JSON APIs stay private", func(t *testing.T) {
+		for _, path := range []string{"/api/places?q=ber", "/api/map/places?limit=20"} {
+			response := httptest.NewRecorder()
+			mux.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
+			if response.Code != http.StatusNotFound {
+				t.Fatalf("expected %s to return 404, got %d", path, response.Code)
+			}
 		}
 	})
 

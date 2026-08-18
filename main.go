@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -31,10 +32,17 @@ func main() {
 
 	mux := http.NewServeMux()
 	setupAssetsRoutes(mux)
-	setupPlaceRoutes(mux, catalog.NewStore(db))
+	store := catalog.NewStore(db)
+	setupPlaceRoutes(mux, store)
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		templ.Handler(pages.Home(githubStars())).ServeHTTP(w, r)
+		places, err := store.MapPlaces(r.Context(), 150)
+		if err != nil {
+			log.Printf("home map places: %v", err)
+			places = []catalog.PlaceSummary{}
+		}
+		templ.Handler(pages.Home(githubStars(), places)).ServeHTTP(w, r)
 	})
+	mux.Handle("GET /offline", templ.Handler(pages.Offline()))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, "ok")
@@ -153,12 +161,28 @@ func listen() (net.Listener, error) {
 }
 
 func setupAssetsRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("GET /manifest.webmanifest", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/manifest+json; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-cache")
+		http.ServeFile(w, r, "assets/manifest.webmanifest")
+	})
+	mux.HandleFunc("GET /service-worker.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Service-Worker-Allowed", "/")
+		http.ServeFile(w, r, "assets/service-worker.js")
+	})
+
 	assetHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.HasSuffix(r.URL.Path, ".js"):
 			w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 		case strings.HasSuffix(r.URL.Path, ".css"):
 			w.Header().Set("Content-Type", "text/css; charset=utf-8")
+		case strings.HasSuffix(r.URL.Path, ".svg"):
+			w.Header().Set("Content-Type", "image/svg+xml")
+		case strings.HasSuffix(r.URL.Path, ".png"):
+			w.Header().Set("Content-Type", "image/png")
 		}
 		if os.Getenv("GO_ENV") != "production" {
 			w.Header().Set("Cache-Control", "no-store")

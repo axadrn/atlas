@@ -91,10 +91,17 @@
   }
 
   document.addEventListener("keydown", function (event) {
-    if (event.key !== "/") return;
-    const input = document.querySelector("[data-place-search-input]");
-    if (!input || document.activeElement === input) return;
-    event.preventDefault();
-    input.focus();
+	if (event.key !== "/") return;
+	const inputs = Array.from(document.querySelectorAll("[data-place-search-input]"));
+	const input = inputs.find(function (candidate) {
+	  return candidate.getClientRects().length > 0;
+	});
+	if (input && document.activeElement === input) return;
+	event.preventDefault();
+	if (input) {
+	  input.focus();
+	  return;
+	}
+	document.querySelector("[data-place-search-trigger]")?.click();
   });
 })();

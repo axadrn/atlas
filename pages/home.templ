@@ -8,6 +8,7 @@ import (
 	"atlas/components/combobox"
 	"atlas/internal/catalog"
 	"atlas/layouts"
+	"atlas/utils"
 )
 
 func formatStars(n int) string {
@@ -30,14 +31,44 @@ func searchPopulation(population *int64) string {
 	return fmt.Sprintf("%d", *population)
 }
 
-templ placeSearch() {
+type globePlace struct {
+	Name        string  `json:"name"`
+	CountryCode string  `json:"country_code"`
+	Slug        string  `json:"slug"`
+	Latitude    float64 `json:"latitude"`
+	Longitude   float64 `json:"longitude"`
+	Population  *int64  `json:"population,omitempty"`
+}
+
+func globePlaceData(places []catalog.PlaceSummary) []globePlace {
+	result := make([]globePlace, 0, len(places))
+	for _, place := range places {
+		if place.Coordinates == nil {
+			continue
+		}
+		result = append(result, globePlace{
+			Name:        place.Name,
+			CountryCode: place.CountryCode,
+			Slug:        place.Slug,
+			Latitude:    place.Coordinates.Latitude,
+			Longitude:   place.Coordinates.Longitude,
+			Population:  place.Population,
+		})
+	}
+	return result
+}
+
+templ placeSearch(id string, class string) {
+	{{ comboboxID := "place-search-" + id }}
+	{{ inputID := comboboxID + "-input" }}
 	<div data-place-search class="relative z-20 w-full max-w-xl">
-		<label for="place-search-input" class="sr-only">Search countries and cities</label>
-		@combobox.Combobox(combobox.Props{ID: "place-search-combobox", AutoHighlight: true}) {
+		<label for={ inputID } class="sr-only">Search countries and cities</label>
+		@combobox.Combobox(combobox.Props{ID: comboboxID, AutoHighlight: true}) {
 			@combobox.Input(combobox.InputProps{
-				ID:          "place-search-input",
-				Class:       "w-full",
-				Placeholder: "Search Berlin, Bangkok, Argentina...",
+				ID:          inputID,
+				Class:       utils.CN("w-full", class),
+				Placeholder: "Search places...",
+				HideTrigger: true,
 				Attributes: templ.Attributes{
 					"data-place-search-input": "",
 				},
@@ -82,9 +113,10 @@ templ PlaceSearchResults(places []catalog.PlaceSummary) {
 	}
 }
 
-templ Home(stars int) {
+templ Home(stars int, places []catalog.PlaceSummary) {
 	@layouts.Base("atlas", false) {
-		<main class="mx-auto flex h-dvh max-w-4xl flex-col items-center justify-center gap-4 overflow-hidden px-6 py-8">
+		@navigation()
+		<main class="mx-auto flex min-h-[calc(100dvh-5rem)] max-w-4xl flex-col items-center justify-center gap-4 overflow-hidden px-6 py-8">
 			@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
 				coming soon
 			}
@@ -96,7 +128,6 @@ templ Home(stars int) {
 				knowledge. Open source, international from day one and built to improve
 				with every useful contribution.
 			</p>
-			@placeSearch()
 			<div class="flex min-h-0 w-full flex-1 items-center justify-center">
 				<canvas id="globe" class="block touch-none"></canvas>
 			</div>
@@ -113,8 +144,8 @@ templ Home(stars int) {
 				}
 			}
 		</main>
+		@templ.JSONScript("atlas-globe-places", globePlaceData(places))
 		<script nonce={ templ.GetNonce(ctx) } src="/assets/js/landmask.js"></script>
 		<script nonce={ templ.GetNonce(ctx) } src="/assets/js/globe.js" defer></script>
-		<script nonce={ templ.GetNonce(ctx) } src="/assets/js/place-search.js" defer></script>
 	}
 }

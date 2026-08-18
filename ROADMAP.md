@@ -21,7 +21,9 @@ written principles instead of memory.
 - Build an interactive map using OpenStreetMap-derived data and replaceable
   tile infrastructure.
 - Build local place search without depending on the public Nominatim service.
+- Ship an installable PWA shell without caching private or live data responses.
 - Create place routes with parent navigation, coverage and freshness states.
+- Reserve `/api/v1` for authenticated first-party and external clients.
 - Define the first public aggregate schema without exposing the application
   database or raw community submissions.
 

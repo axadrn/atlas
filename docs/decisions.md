@@ -294,3 +294,42 @@ for something more precise.
 Reconsider separate tables only if different place types develop materially
 different identity or lifecycle rules. Do not add a full administrative
 registry without a product feature that needs it.
+
+## 15. Keep SSR direct and external APIs explicit
+
+**Status:** accepted
+
+Server-rendered pages call the Go store directly. Atlas does not expose a JSON
+API merely to move data between code in the same process. Browser interactions
+receive narrow HTML fragments or page-specific embedded data.
+
+This wins because there is no internal HTTP layer to operate and no accidental
+public bulk-data endpoint. It cannot prevent collection of facts that Atlas
+shows publicly, so paid API value must come from structured access, licensed
+datasets, richer aggregates, freshness, quotas and service quality.
+
+Future first-party and external endpoints use `/api/v1` and require
+authentication unless a route is deliberately public. Mobile clients use user
+authentication. External integrations use revocable, scoped and rate-limited
+API keys whose raw secrets are never stored.
+
+Reconsider a separate API service only after independent scaling or operational
+requirements appear. Do not put a shared secret into browser or mobile code.
+
+## 16. Ship an installable PWA before native clients
+
+**Status:** accepted
+
+Atlas starts as a responsive, installable PWA. The manifest, Home Screen icons,
+standalone display mode and offline fallback work with the existing Go and
+templ application. The service worker caches static assets only.
+
+This wins because mobile users get an app-like entry point immediately without
+a second frontend, duplicated features or store-release workflow. The install
+control uses the browser prompt where available and explains the iOS Home Screen
+flow where a programmatic prompt is unavailable.
+
+Build native iOS and Android clients together with Expo and React Native when
+push notifications, background work, camera access, reliable offline workflows
+or platform integrations create measured value. The native clients reuse the
+versioned API rather than embedding the website or duplicating business rules.

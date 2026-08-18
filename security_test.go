@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -13,7 +14,7 @@ import (
 )
 
 func TestSecurityHeadersAndScriptNonces(t *testing.T) {
-	handler := withSecurityHeaders(templ.Handler(pages.Home(0)))
+	handler := withSecurityHeaders(templ.Handler(pages.Home(0, nil)))
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
 
@@ -44,6 +45,10 @@ func TestSecurityHeadersAndScriptNonces(t *testing.T) {
 			t.Fatalf("script tag does not use the response nonce: %s", tag)
 		}
 	}
+	if !strings.Contains(response.Body.String(), `rel="manifest" href="/manifest.webmanifest"`) ||
+		!strings.Contains(response.Body.String(), `src="/assets/js/pwa.js"`) {
+		t.Fatal("page is missing PWA metadata or registration")
+	}
 
 	expectedHeaders := map[string]string{
 		"Cross-Origin-Opener-Policy":   "same-origin",
@@ -65,6 +70,7 @@ func TestStaticJavaScriptContentType(t *testing.T) {
 	for _, path := range []string{
 		"/assets/js/globe.js",
 		"/assets/js/place-map.js",
+		"/assets/js/pwa.js",
 		"/assets/vendor/maplibre-gl-csp-5.24.0.js",
 		"/assets/vendor/maplibre-gl-csp-worker-5.24.0.js",
 	} {
@@ -80,4 +86,54 @@ func TestStaticJavaScriptContentType(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPWAPublicFiles(t *testing.T) {
+	mux := http.NewServeMux()
+	setupAssetsRoutes(mux)
+
+	t.Run("manifest", func(t *testing.T) {
+		response := httptest.NewRecorder()
+		mux.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/manifest.webmanifest", nil))
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", response.Code, response.Body.String())
+		}
+		if got := response.Header().Get("Content-Type"); got != "application/manifest+json; charset=utf-8" {
+			t.Fatalf("unexpected manifest content type: %q", got)
+		}
+		var manifest struct {
+			Name     string `json:"name"`
+			StartURL string `json:"start_url"`
+			Display  string `json:"display"`
+			Icons    []struct {
+				Source string `json:"src"`
+			} `json:"icons"`
+		}
+		if err := json.NewDecoder(response.Body).Decode(&manifest); err != nil {
+			t.Fatal(err)
+		}
+		if manifest.Name != "Atlas" || manifest.StartURL != "/" || manifest.Display != "standalone" || len(manifest.Icons) < 3 {
+			t.Fatalf("unexpected manifest: %#v", manifest)
+		}
+	})
+
+	t.Run("service worker", func(t *testing.T) {
+		response := httptest.NewRecorder()
+		mux.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/service-worker.js", nil))
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", response.Code, response.Body.String())
+		}
+		if got := response.Header().Get("Content-Type"); got != "application/javascript; charset=utf-8" {
+			t.Fatalf("unexpected service worker content type: %q", got)
+		}
+		if response.Header().Get("Cache-Control") != "no-cache" || response.Header().Get("Service-Worker-Allowed") != "/" {
+			t.Fatalf("unexpected service worker headers: %#v", response.Header())
+		}
+		body := response.Body.String()
+		if !strings.Contains(body, `request.mode === "navigate"`) ||
+			!strings.Contains(body, `url.pathname.startsWith("/assets/")`) ||
+			strings.Contains(body, `url.pathname.startsWith("/api/")`) {
+			t.Fatal("service worker caching boundary is not restricted to navigation fallback and static assets")
+		}
+	})
 }

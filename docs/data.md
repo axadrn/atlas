@@ -14,6 +14,17 @@ dataset gets its own schema, privacy review, license and rate limits. Accounts,
 sessions, private presence, raw risk signals and private toolbox inputs are
 never public data products.
 
+SSR handlers call the Go store directly. They do not call an internal HTTP API.
+Browser features receive only the narrow data they need: the globe gets its
+visible markers embedded in the page and search receives a small HTML fragment.
+This is data minimization, not a promise that facts shown on public pages cannot
+be collected.
+
+Future first-party mobile and external APIs live under `/api/v1`. They are
+authenticated by default. First-party apps use user sessions or short-lived
+tokens; external customers use revocable, scoped API keys. A mobile or browser
+bundle never contains a shared secret.
+
 The initial system is one Go process and one SQLite database:
 
 ```text
@@ -160,3 +171,10 @@ uncertainty.
 
 GitHub remains the place for methodology, schemas, reproducible bugs and code.
 It is not the live community database.
+
+## Offline storage
+
+The PWA service worker caches only public static assets and a generic offline
+page. It does not cache navigated pages, API responses, search results, account
+data or private toolbox inputs. Features that need intentional encrypted or
+offline data storage must receive a separate privacy and security design.
