@@ -23,9 +23,10 @@ func NewStore(db *sql.DB) *Store {
 func (s *Store) SearchPlaces(ctx context.Context, query string, limit int) ([]PlaceSummary, error) {
 	query = strings.TrimSpace(query)
 	limit = boundedLimit(limit, 10, 25)
-	// An empty query is the search popup's initial state: show the top
-	// curated destinations instead of nothing.
+	// An empty query is the search popup's initial state: show the whole
+	// curated top list instead of nothing, regardless of the search limit.
 	if query == "" {
+		limit = 50
 		rows, err := s.db.QueryContext(ctx, `
 			SELECT id, slug, name, place_type, parent_id, country_code,
 			       is_destination, latitude, longitude, population, curated_rank

@@ -16,27 +16,14 @@
   }
   let placeVecs = [];
 
-  // Land dots: a fibonacci sphere sampled against the landmask, so the dots
-  // are evenly spaced with no visible latitude rows.
-  const landVecs = [];
-  const mask = window.ATLAS_LAND;
-  if (mask) {
-    const bit = (i) => (parseInt(mask.hex[i >> 2], 16) >> (i & 3)) & 1;
-    const isLand = (lat, lon) => {
-      const row = Math.min(mask.h - 1, Math.max(0, Math.floor((90 - lat) / mask.step)));
-      const col = Math.min(mask.w - 1, Math.max(0, Math.floor((lon + 180) / mask.step)));
-      return bit(row * mask.w + col);
-    };
-    const N = 22000;
-    const GA = Math.PI * (3 - Math.sqrt(5));
-    for (let i = 0; i < N; i++) {
-      const y = 1 - (2 * i + 1) / N;
-      const lat = Math.asin(y) / D2R;
-      if (Math.abs(lat) > 84) continue;
-      const lon = (((i * GA) / D2R) % 360) - 180;
-      if (isLand(lat, lon)) landVecs.push(toVec(lat, lon));
-    }
-  }
+  // Solid continents: Natural Earth 110m land rings (land.js) as unit
+  // vectors. The back hemisphere is clamped to the rim while filling, the
+  // standard cheap orthographic clip.
+  const landRings = (window.ATLAS_LAND_RINGS || []).map((flat) => {
+    const ring = [];
+    for (let i = 0; i < flat.length; i += 2) ring.push(toVec(flat[i + 1], flat[i]));
+    return ring;
+  });
 
   function slerp(a, b, t) {
     let dot = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -176,28 +163,36 @@
   }
 
   function drawLand() {
-    // Depth quantized into alpha buckets so the dots batch into a handful
-    // of paths instead of thousands of draw calls. Small dots at low alpha
-    // read as a soft land texture, not a dot grid; the hotspots carry the
-    // visual weight.
-    const N = 6;
-    const buckets = Array.from({ length: N }, () => []);
-    for (const v of landVecs) {
-      const p = project(rotate(v));
-      if (p[2] <= 0.02) continue;
-      buckets[Math.min(N - 1, Math.floor(p[2] * N))].push(p);
-    }
-    const dot = W / 520;
     ctx.fillStyle = colMuted;
-    for (let b = 0; b < N; b++) {
-      ctx.globalAlpha = 0.12 + (b / (N - 1)) * 0.24;
-      ctx.beginPath();
-      for (const p of buckets[b]) {
-        ctx.moveTo(p[0] + dot, p[1]);
-        ctx.arc(p[0], p[1], dot, 0, Math.PI * 2);
+    ctx.globalAlpha = 0.22;
+    ctx.beginPath();
+    for (const ring of landRings) {
+      let visible = false;
+      const pts = [];
+      for (const v of ring) {
+        const r3 = rotate(v);
+        if (r3[2] > 0) visible = true;
+        pts.push(r3);
       }
-      ctx.fill();
+      if (!visible) continue;
+      for (let i = 0; i < pts.length; i++) {
+        const [x, y, z] = pts[i];
+        let px, py;
+        if (z >= 0) {
+          px = CX + x * R;
+          py = CY - y * R;
+        } else {
+          // Behind the sphere: pin to the silhouette edge.
+          const n = Math.hypot(x, y) || 1;
+          px = CX + (x / n) * R;
+          py = CY - (y / n) * R;
+        }
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
     }
+    ctx.fill("evenodd");
     ctx.globalAlpha = 1;
   }
 
