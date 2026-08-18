@@ -5,7 +5,8 @@ import (
 
 	"atlas/components/badge"
 	"atlas/components/button"
-	"atlas/components/placesearch"
+	"atlas/components/combobox"
+	"atlas/internal/catalog"
 	"atlas/layouts"
 )
 
@@ -14,6 +15,71 @@ func formatStars(n int) string {
 		return fmt.Sprintf("%.1fk", float64(n)/1000)
 	}
 	return fmt.Sprintf("%d", n)
+}
+
+func searchPopulation(population *int64) string {
+	if population == nil {
+		return ""
+	}
+	if *population >= 1_000_000 {
+		return fmt.Sprintf("%.1fM", float64(*population)/1_000_000)
+	}
+	if *population >= 1_000 {
+		return fmt.Sprintf("%.0fk", float64(*population)/1_000)
+	}
+	return fmt.Sprintf("%d", *population)
+}
+
+templ placeSearch() {
+	<div data-place-search class="relative z-20 w-full max-w-xl">
+		<label for="place-search-input" class="sr-only">Search countries and cities</label>
+		@combobox.Combobox(combobox.Props{ID: "place-search-combobox", AutoHighlight: true}) {
+			@combobox.Input(combobox.InputProps{
+				ID:          "place-search-input",
+				Class:       "w-full",
+				Placeholder: "Search Berlin, Bangkok, Argentina...",
+				Attributes: templ.Attributes{
+					"data-place-search-input": "",
+				},
+			})
+			@combobox.Content(combobox.ContentProps{
+				Attributes: templ.Attributes{
+					"data-place-search-content": "",
+				},
+			}) {
+				@combobox.Empty(combobox.EmptyProps{
+					Class: "py-4",
+					Attributes: templ.Attributes{
+						"data-place-search-empty": "",
+					},
+				}) {
+					Type at least two characters.
+				}
+				@combobox.List(combobox.ListProps{
+					Attributes: templ.Attributes{
+						"data-place-search-results": "",
+					},
+				})
+			}
+		}
+	</div>
+}
+
+templ PlaceSearchResults(places []catalog.PlaceSummary) {
+	for _, place := range places {
+		@combobox.Item(combobox.ItemProps{
+			Value: place.Slug,
+			Label: place.Name,
+		}) {
+			<span class="min-w-0 flex-1">
+				<span class="block truncate font-medium">{ place.Name }</span>
+				<span class="block text-xs text-muted-foreground">{ place.CountryCode } · { string(place.Kind) }</span>
+			</span>
+			if place.Population != nil {
+				<span class="shrink-0 pr-1 text-xs tabular-nums text-muted-foreground">{ searchPopulation(place.Population) }</span>
+			}
+		}
+	}
 }
 
 templ Home(stars int) {
@@ -26,16 +92,16 @@ templ Home(stars int) {
 				The open source home for digital nomads.
 			</h1>
 			<p class="max-w-xl text-pretty text-center text-base text-muted-foreground sm:text-lg">
-				Explore cities with sourced public data and community-verified nomad
+				Explore destinations with sourced public data and community-verified nomad
 				knowledge. Open source, international from day one and built to improve
 				with every useful contribution.
 			</p>
-			@placesearch.PlaceSearch()
+			@placeSearch()
 			<div class="flex min-h-0 w-full flex-1 items-center justify-center">
 				<canvas id="globe" class="block touch-none"></canvas>
 			</div>
 			<p id="globe-caption" class="min-h-5 text-center text-sm text-muted-foreground">
-				Drag the globe. Click a city.
+				Drag the globe. Select a destination.
 			</p>
 			@button.Button(button.Props{Variant: button.VariantOutline, Href: "https://github.com/axadrn/atlas", Target: "_blank"}) {
 				<svg viewBox="0 0 16 16" class="size-4 fill-current" aria-hidden="true">
@@ -49,5 +115,6 @@ templ Home(stars int) {
 		</main>
 		<script nonce={ templ.GetNonce(ctx) } src="/assets/js/landmask.js"></script>
 		<script nonce={ templ.GetNonce(ctx) } src="/assets/js/globe.js" defer></script>
+		<script nonce={ templ.GetNonce(ctx) } src="/assets/js/place-search.js" defer></script>
 	}
 }

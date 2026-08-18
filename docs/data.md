@@ -1,281 +1,154 @@
 # Data
 
 Atlas is database-first. Open source does not require every live row to be a
-YAML file in Git. Git is excellent for code, definitions and reviewable text.
-It is poor at high-volume observations, private records, moderation workflows
-and frequently changing aggregates.
+file in Git.
 
-## The split
+## Storage boundary
 
-### Git contains
+Git contains code, migrations, methodology, policies, documentation and small
+test fixtures. SQLite contains the live catalog, community contributions,
+review state and private application data.
 
-- application code;
-- database migrations;
-- data type and field definitions;
-- scoring and aggregation methodology;
-- moderation and governance rules;
-- source adapters and importers;
-- license and attribution requirements;
-- documentation;
-- small deterministic fixtures for tests.
+The application database is never a public download. A future API or public
+dataset gets its own schema, privacy review, license and rate limits. Accounts,
+sessions, private presence, raw risk signals and private toolbox inputs are
+never public data products.
 
-Markdown is used for human explanations. YAML or JSON may be used for small
-configuration files when it is the simplest representation. Neither is the
-primary data store.
-
-### SQLite contains
-
-- places and their names;
-- external identifiers;
-- accounts and profile settings;
-- optional presence;
-- observations and experiences;
-- claims, evidence and attestations;
-- articles and discussions when they are introduced;
-- contribution and review state;
-- reputation and XP events;
-- moderation cases;
-- risk signals;
-- aggregates and publication state.
-
-### Public access is selective
-
-The primary application database is never published, downloadable or directly
-queryable by the public. Atlas does not promise a complete database dump or a
-raw export of community contributions.
-
-Public pages expose the information required by the product. A selected
-aggregate, source registry or Atlas-produced reference dataset may later be
-offered through an API or a dedicated download after a separate privacy,
-license and business review. Each public data product has an explicit schema
-and license. Openness is decided per data product, not inherited from the
-internal database.
-
-Accounts, sessions, private presence, travel history, raw risk signals,
-moderation records and private toolbox inputs are never public data products.
-
-## Database topology
-
-The initial system remains one Go process and one primary SQLite database. A
-replaceable derived database may be used for large external datasets such as
-OpenStreetMap extracts.
-
-This keeps deployment simple while preserving clear boundaries:
+The initial system is one Go process and one SQLite database:
 
 ```text
-external sources -> import and normalize -> primary SQLite
-community input  -> validate and review  -> primary SQLite
-primary SQLite   -> application policy   -> public pages and selected APIs
-private toolbox  -> private storage      -> only the individual user
+external facts  -> validate and attribute -> SQLite
+community input -> validate and review    -> SQLite
+SQLite          -> application policy     -> pages and selected APIs
 ```
 
-SQLite uses write-ahead logging, short transactions, foreign keys and bounded
-connection pools. External HTTP calls never happen inside a write transaction.
-PostgreSQL becomes an option only after measured write contention, multiple
-writers across application nodes or operational requirements justify it.
+PostgreSQL becomes an option only after measured write contention or multiple
+application writers justify it.
 
-## Core records
+## Place catalog
 
-The exact SQL schema will evolve, but these concepts must remain distinct.
+The catalog starts with three tables:
 
-### Geography
+- `places` stores the stable Atlas ID and current display fields;
+- `sources` stores provider and license information once;
+- `place_sources` links a place to an external record and describes what that
+  provider contributed.
 
-- `places`: stable identity, kind, parent and coarse geometry;
-- `place_names`: localized and historical names;
-- `external_references`: identifiers from GeoNames, OpenStreetMap and other
-  providers;
-- `place_redirects`: old Atlas IDs retained after confirmed duplicate merges;
-- `place_relations`: containment, metro membership and disputed relationships.
+`places.id` is the only identity referenced by ratings, observations, saved
+places and future community records. Provider IDs can change without moving
+community data.
 
-Slugs and display names are not identifiers. Boundaries and disputed places
-retain their source and worldview instead of pretending there is one neutral
-map.
+The first catalog deliberately has only two kinds:
 
-`places.id` is the stable Atlas identity. Ratings, observations, saved places
-and future community records reference this ID, never a provider ID. GeoNames,
-OpenStreetMap, Wikidata and future IDs stay in `external_references` and can be
-added or replaced without moving community data.
+- `country`;
+- `destination`.
 
-Imports match exact external IDs first. Ambiguous matches are reviewed instead
-of being merged by name alone. When two Atlas records are confirmed as the
-same place, `place_redirects` keeps the old ID resolvable so existing links and
-contributions do not become orphaned.
+Destination covers cities, islands and other places a traveler can meaningfully
+evaluate. Add finer types only when a real feature needs different behavior.
 
-### Sources and evidence
+Names and slugs are display values, not identity. Localization, aliases,
+boundaries and merge support are added when the product needs them. They are
+not speculative launch tables.
 
-- `sources`: publisher, URL and license;
-- `source_snapshots`: retrieval time, checksum and archived representation;
-- `evidence`: the part of a source used to support or dispute a claim.
+## Provenance
 
-Every imported or community-supplied claim can be traced to its origin.
+`place_sources` is intentionally narrow. It covers place identity and current
+geographic display facts such as name, country code, coordinates, population
+and timezone. It does not become a generic table for every fact about a place.
 
-### Observations
+Each link can store:
 
-An observation records:
+- provider;
+- external record ID and URL;
+- a short human-readable contribution description;
+- retrieval time.
 
-- contributor or import source;
-- place and optional coarse area;
-- category and definition version;
-- value, currency or unit;
-- observation time;
-- relevant context;
-- eligibility and review state.
+The source license lives in `sources`. Checksums, archived snapshots and
+field-level lineage are added only if a real update or compliance workflow
+requires them.
 
-Observations are appended. Corrections supersede a previous record rather than
-rewriting history. Public aggregates use eligible observations and expose
-sample size, period, methodology and uncertainty.
+Every place page presents its provenance through one Sources drawer. It states
+what each provider contributed and that Atlas may select, normalize and combine
+source data. Map attribution remains visible with the map because map licenses
+and provider terms can require it there.
 
-Prices use explicit currencies and periods. Measurements use fixed units.
-Money is not stored as a floating-point approximation.
+## Separate data domains
+
+Different facts have different meaning and cannot share one generic record.
+
+### Prices
+
+A future price report needs a place, category, amount, currency, observation
+date and context. Public output is an aggregate with sample size, period and
+methodology. Money is never stored as a floating-point approximation.
+
+### Weather and exchange rates
+
+Machine-measured data comes from a provider through a bounded cache. It is not
+a permanent property of `places`, and page requests degrade gracefully when a
+provider is unavailable.
+
+### Crime and public statistics
+
+Statistics need a geography, definition, period and source. Different legal
+definitions and reporting rates must not be presented as directly comparable.
 
 ### Experiences and ratings
 
-An account has at most one active response per place, dimension and relevant
-period. Updating a response supersedes the prior response instead of creating
-extra votes.
+Ratings are subjective community responses. Atlas shows distributions and
+segmented views instead of pretending that one universal city score is truth.
+Accounts have bounded influence and cannot gain extra votes through payment.
 
-Atlas shows distributions and segmented views. A visitor, long-term resident
-and local may experience the same place differently. Combining them into one
-universal score would hide useful information and invite patriotic voting.
+### Claims and articles
 
-### Claims
+Visa, tax, health and safety information is versioned content with an effective
+period and evidence. Popularity alone cannot publish a high-risk claim.
 
-A claim is a versioned statement with a scope and effective period. It moves
-through an explicit lifecycle:
+### Images
 
-```text
-submitted -> pending -> published -> contested -> superseded
-                     \-> rejected
-```
+Image attribution belongs to the image record because creator and license vary
+per file. A wrong or illegally reused image is worse than no image.
 
-Support and dispute actions are attestations with reasons and optional
-evidence. Popularity alone cannot publish a high-risk claim. Visa, tax, health
-and safety claims require stronger evidence and review policies than a coffee
-price.
+These domains may reuse the central `sources` registry, and their source details
+can be collected in the same UI drawer. Their actual records remain separate.
 
-### Audit and reputation
+## Initial external sources
 
-- contribution events preserve who did what and when;
-- moderation events preserve decisions and reasons;
-- reputation events explain every increase or decrease;
-- aggregate versions record the exact policy and input set used.
+| Source | Initial use |
+| --- | --- |
+| GeoNames | Place names, country codes, coordinates, approximate population, timezone and external IDs |
+| Natural Earth | Temporary offline selection of globally significant launch destinations |
+| OpenStreetMap | Map data and later points of interest |
+| OpenFreeMap | Initial vector tile and map style delivery |
 
-Current state is queryable without replaying the entire history. Important
-actions also have append-only audit records. Atlas uses an audit ledger, not a
-full event-sourcing architecture.
-
-## External data
-
-Atlas treats external data as imported and replaceable, never as an invisible
-dependency.
-
-### Source roles
-
-No single upstream is the Atlas geography database. Each source has a narrow
-job and retains its own provenance and license.
-
-| Source | Atlas use | Initial refresh target |
-| --- | --- | --- |
-| GeoNames `cities5000` | Place seed, names, coordinates, time zones and approximate population | Weekly snapshot |
-| OpenStreetMap | Interactive maps, visible boundaries and later points of interest | Provider tiles live; imported extracts daily or weekly |
-| Wikidata | Cross-source identifiers, localized metadata and links to suitable media | Weekly enrichment |
-| Wikimedia Commons | Optional place images with per-file creator and license metadata | Revalidate metadata every 30 days |
-| Community observations | Costs, experiences and practical local knowledge | Append immediately; aggregate on a scheduled window |
-
-GeoNames is a global geographical gazetteer assembled from many upstream
-sources and community corrections. Its free dumps use CC BY 4.0 and are
-provided without a guarantee of accuracy, timeliness or completeness.
-`cities5000` contains populated places over 5,000 people plus selected
-administrative seats. It is an excellent global bootstrap, not an authority
-for every metric and not the final Atlas place taxonomy. Atlas excludes feature
-codes that explicitly mean a section, historical place, abandoned place or
-destroyed place. Remaining records are discovery candidates, not confirmed
-independent cities. GeoNames administrative-place codes vary between countries,
-so Atlas does not publish a country city directory until a stronger global
-classification layer has been selected and tested.
-
-Country and city population require different follow-up sources. Country
-population should use an authoritative statistical source such as the World
-Bank or UN. City population must distinguish city proper, urban area and metro
-area. Atlas must not present one of these as another.
+GeoNames data is available under CC BY 4.0 and without a guarantee of accuracy,
+timeliness or completeness. Atlas stores GeoNames facts instead of fetching
+them during page requests. The initial selection process is temporary and not a
+production synchronization pipeline.
 
 Official references:
 
 - [GeoNames data dumps](https://download.geonames.org/export/dump/)
-- [OpenStreetMap planet and extracts](https://planet.openstreetmap.org/)
-- [Wikidata data access](https://www.wikidata.org/wiki/Help:Data_access)
-- [Wikimedia Commons reuse](https://commons.wikimedia.org/wiki/Commons:Reusing_content_outside_Wikimedia)
+- [Natural Earth populated places](https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-populated-places/)
+- [OpenStreetMap attribution](https://www.openstreetmap.org/copyright)
+- [OpenFreeMap](https://openfreemap.org/)
 
-### Refresh policy
+## Freshness
 
-Public page requests do not fetch upstream data. Import jobs download outside
-the database transaction, validate the complete input, calculate a checksum,
-record a source snapshot and atomically publish the normalized result. A failed
-job leaves the last good snapshot active.
+Stored values keep serving when a provider is unavailable. A relevant date is
+shown instead of implying that every value is live. Scheduled synchronization
+is added only when real maintenance shows it is necessary.
 
-Refresh frequency follows how quickly a fact changes and how expensive or
-risky it is to obtain. The upstream publication frequency is a maximum, not a
-requirement to import that often. GeoNames publishes daily files, but a weekly
-full snapshot is enough for the initial Atlas place catalog. Daily
-modification and deletion feeds become useful when the catalog importer can
-save meaningful bandwidth. Every full refresh already reconciles removed and
-reclassified places atomically. It keeps their stable Atlas IDs while removing
-them from normal discovery.
+Population needs special care. Country population, city proper, urban area and
+metro population are different measurements. Atlas must label the definition
+before combining or comparing them.
 
-Every public value eventually exposes:
+## Contributions
 
-- source and publisher;
-- upstream record or dataset;
-- license;
-- observation or effective date when available;
-- Atlas retrieval time;
-- method, sample size and uncertainty when the value is aggregated.
+People contribute through structured product forms so Atlas can validate units,
+context and privacy. Observations are append-only. Corrections supersede prior
+records, and public aggregates expose sample size, period, methodology and
+uncertainty.
 
-Freshness is a product state, not a silent overwrite. Values may be current,
-due for refresh, stale or unavailable. The application keeps serving the last
-known value with its date unless policy marks it unsafe to publish.
-
-OpenStreetMap is suitable for maps, geography and later points of interest.
-Atlas must:
-
-- show the required attribution;
-- track ODbL-derived records and public uses;
-- avoid bulk use of donated public tile and geocoding services;
-- use switchable tile and geocoding providers;
-- prefer scheduled extracts or a dedicated provider for production imports;
-- keep data with incompatible licenses separate when necessary.
-
-Country map cameras are derived from the imported GeoNames city coordinates.
-This keeps the initial stack small and frames the populated destinations Atlas
-actually exposes. These bounds are not exact political geometry and may omit
-unpopulated islands or sparsely populated extremes. Add a dedicated boundary
-dataset only when a product feature needs exact polygons, such as choropleths,
-country hit testing or boundary downloads.
-
-### Place images
-
-An image is optional. A wrong, generic or illegally reused image is worse than
-a strong map and useful data. The initial enrichment source is Wikimedia
-Commons, usually discovered through a Wikidata entity. Atlas stores the file
-identifier, original URL, creator, license, license URL, source page and
-retrieval time. The interface renders that attribution with the image.
-
-Atlas never scrapes image search engines or assumes that a Wikipedia image is
-automatically reusable. Community uploads come later and require explicit
-rights confirmation, moderation and takedown handling.
-
-Weather, exchange rates and other machine-measured data should be imported
-automatically. Asking people to report data that a reliable machine source can
-provide wastes attention and reduces quality.
-
-## Open contribution
-
-People contribute through the product because structured forms can validate
-units, context and privacy before data is stored. GitHub issues and pull
-requests remain useful for methodology, schemas, importers and reproducible
-bugs.
-
-Every selected public data product includes provenance and an explicit license.
-Transparent data means people can inspect sources, methodology, freshness and
-aggregate history. It does not require publishing the application database,
-private records or raw community submissions.
+GitHub remains the place for methodology, schemas, reproducible bugs and code.
+It is not the live community database.

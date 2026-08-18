@@ -1,30 +1,10 @@
 package catalog
 
-import (
-	"errors"
-	"fmt"
-	"regexp"
-	"strings"
-)
-
 type PlaceKind string
 
 const (
-	PlaceKindWorld     PlaceKind = "world"
-	PlaceKindContinent PlaceKind = "continent"
-	PlaceKindCountry   PlaceKind = "country"
-	PlaceKindTerritory PlaceKind = "territory"
-	PlaceKindRegion    PlaceKind = "region"
-	PlaceKindCity      PlaceKind = "city"
-	PlaceKindMetro     PlaceKind = "metro"
-)
-
-type PlaceStatus string
-
-const (
-	PlaceStatusActive   PlaceStatus = "active"
-	PlaceStatusHistoric PlaceStatus = "historic"
-	PlaceStatusDisputed PlaceStatus = "disputed"
+	PlaceKindCountry     PlaceKind = "country"
+	PlaceKindDestination PlaceKind = "destination"
 )
 
 type Coordinates struct {
@@ -32,70 +12,32 @@ type Coordinates struct {
 	Longitude float64 `json:"longitude"`
 }
 
-type Place struct {
-	ID          string
-	Slug        string
-	Kind        PlaceKind
-	Status      PlaceStatus
-	ParentID    string
-	CountryCode string
-	Coordinates *Coordinates
-	Timezone    string
-	Population  *int64
+type Bounds struct {
+	West  float64 `json:"west"`
+	South float64 `json:"south"`
+	East  float64 `json:"east"`
+	North float64 `json:"north"`
 }
 
-var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
-
-func (p Place) Validate() error {
-	if strings.TrimSpace(p.ID) == "" {
-		return errors.New("place ID is required")
-	}
-	if !slugPattern.MatchString(p.Slug) {
-		return errors.New("place slug must contain lowercase letters, numbers and single hyphens")
-	}
-	if !p.Kind.valid() {
-		return fmt.Errorf("invalid place kind %q", p.Kind)
-	}
-	if !p.Status.valid() {
-		return fmt.Errorf("invalid place status %q", p.Status)
-	}
-	if p.ParentID == p.ID {
-		return errors.New("place cannot be its own parent")
-	}
-	if p.CountryCode != "" {
-		if len(p.CountryCode) != 2 || p.CountryCode != strings.ToUpper(p.CountryCode) {
-			return errors.New("country code must be a two-letter uppercase code")
-		}
-	}
-	if p.Coordinates != nil {
-		if p.Coordinates.Latitude < -90 || p.Coordinates.Latitude > 90 {
-			return errors.New("latitude must be between -90 and 90")
-		}
-		if p.Coordinates.Longitude < -180 || p.Coordinates.Longitude > 180 {
-			return errors.New("longitude must be between -180 and 180")
-		}
-	}
-	if p.Population != nil && *p.Population < 0 {
-		return errors.New("population cannot be negative")
-	}
-	return nil
+type PlaceSummary struct {
+	ID          string       `json:"id"`
+	Slug        string       `json:"slug"`
+	Name        string       `json:"name"`
+	Kind        PlaceKind    `json:"kind"`
+	CountryCode string       `json:"country_code"`
+	Coordinates *Coordinates `json:"coordinates,omitempty"`
+	Bounds      *Bounds      `json:"bounds,omitempty"`
+	Timezone    string       `json:"timezone,omitempty"`
+	Population  *int64       `json:"population,omitempty"`
 }
 
-func (k PlaceKind) valid() bool {
-	switch k {
-	case PlaceKindWorld, PlaceKindContinent, PlaceKindCountry, PlaceKindTerritory,
-		PlaceKindRegion, PlaceKindCity, PlaceKindMetro:
-		return true
-	default:
-		return false
-	}
-}
-
-func (s PlaceStatus) valid() bool {
-	switch s {
-	case PlaceStatusActive, PlaceStatusHistoric, PlaceStatusDisputed:
-		return true
-	default:
-		return false
-	}
+type SourceAttribution struct {
+	Name         string
+	HomepageURL  string
+	LicenseName  string
+	LicenseURL   string
+	ExternalID   string
+	RecordURL    string
+	Contribution string
+	RetrievedAt  string
 }

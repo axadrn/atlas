@@ -7,14 +7,14 @@
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
 
-  let CITIES = [];
+  let PLACES = [];
 
   const D2R = Math.PI / 180;
   function toVec(lat, lon) {
     const la = lat * D2R, lo = lon * D2R;
     return [Math.cos(la) * Math.cos(lo), Math.sin(la), Math.cos(la) * Math.sin(lo)];
   }
-  let cityVecs = [];
+  let placeVecs = [];
 
   // Land dots: a fibonacci sphere sampled against the landmask, so the dots
   // are evenly spaced with no visible latitude rows.
@@ -119,28 +119,28 @@
   canvas.addEventListener("pointerleave", () => { mouseX = mouseY = -1; });
   canvas.addEventListener("click", () => {
     if (hovered >= 0) {
-      window.location.href = "/places/" + encodeURIComponent(CITIES[hovered][4]);
+      window.location.href = "/places/" + encodeURIComponent(PLACES[hovered][4]);
     }
   });
 
   // A few arcs between random hubs.
   const arcs = [];
   function spawnArc() {
-    if (CITIES.length < 2) return;
-    const a = Math.floor(Math.random() * CITIES.length);
-    let b = Math.floor(Math.random() * CITIES.length);
-    if (b === a) b = (b + 7) % CITIES.length;
-    arcs.push({ a: cityVecs[a], b: cityVecs[b], t: 0, speed: 0.004 + Math.random() * 0.003 });
+    if (PLACES.length < 2) return;
+    const a = Math.floor(Math.random() * PLACES.length);
+    let b = Math.floor(Math.random() * PLACES.length);
+    if (b === a) b = (b + 7) % PLACES.length;
+    arcs.push({ a: placeVecs[a], b: placeVecs[b], t: 0, speed: 0.004 + Math.random() * 0.003 });
   }
 
-  async function loadCities() {
+  async function loadPlaces() {
     try {
-      const response = await fetch("/api/map/cities?limit=150", {
+      const response = await fetch("/api/map/places?limit=150", {
         headers: { Accept: "application/json" },
       });
       if (!response.ok) return;
       const data = await response.json();
-      CITIES = (data.results || [])
+      PLACES = (data.results || [])
         .filter((place) => place.coordinates)
         .map((place) => [
           place.name,
@@ -151,13 +151,13 @@
             .join(" · "),
           place.slug,
         ]);
-      cityVecs = CITIES.map((city) => toVec(city[1], city[2]));
+      placeVecs = PLACES.map((place) => toVec(place[1], place[2]));
       for (let i = 0; i < 3; i++) spawnArc();
     } catch (_) {
       // The globe remains interactive even when map data is unavailable.
     }
   }
-  loadCities();
+  loadPlaces();
 
   function drawLand() {
     // Depth quantized into alpha buckets so the dots batch into a handful
@@ -184,12 +184,12 @@
   }
 
   let hovered = -1;
-  function drawCities() {
+  function drawPlaces() {
     hovered = -1;
     let best = 169;
     const pts = [];
-    for (let i = 0; i < cityVecs.length; i++) {
-      const p = project(rotate(cityVecs[i]));
+    for (let i = 0; i < placeVecs.length; i++) {
+      const p = project(rotate(placeVecs[i]));
       pts.push(p);
       if (p[2] > 0 && mouseX >= 0) {
         const d = (p[0] - mouseX) ** 2 + (p[1] - mouseY) ** 2;
@@ -215,7 +215,7 @@
       const p = pts[hovered];
       ctx.font = "600 13px Inter, ui-sans-serif, system-ui, sans-serif";
       ctx.fillStyle = colFg;
-      const label = CITIES[hovered][0];
+      const label = PLACES[hovered][0];
       const w = ctx.measureText(label).width;
       ctx.fillText(label, Math.min(Math.max(p[0] - w / 2, 4), W - w - 4), p[1] - 12);
       canvas.style.cursor = "pointer";
@@ -262,7 +262,7 @@
     ctx.clearRect(0, 0, W, H);
     drawLand();
     drawArcs();
-    drawCities();
+    drawPlaces();
 
     const hovering = mouseX >= 0;
     if (!dragging) {

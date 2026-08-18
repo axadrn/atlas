@@ -36,18 +36,13 @@ Goal, said out loud: become the biggest digital nomad platform in the world.
 
 One binary. One box. That is the whole infrastructure.
 
-## Bootstrap place data
+## Place data
 
-Atlas imports the official GeoNames country registry and `cities5000` dump
-into SQLite. The import records source URLs and SHA-256 checksums and is safe to
-run repeatedly.
-
-```sh
-go run . import geonames
-```
-
-GeoNames data is licensed under CC BY 4.0. The application keeps the required
-source and license attribution with the imported records.
+The application database is the only live place catalog. Atlas owns the place
+selection and stable IDs. Facts obtained from external datasets retain their
+source, external record, contribution, retrieval date and license attribution.
+There is no runtime catalog import pipeline or second file-based source of
+truth.
 
 ## The builder
 
@@ -87,5 +82,5 @@ the [agent rules](AGENTS.md).
 ## License
 
 [MIT](LICENSE) for code. Atlas-produced public datasets explicitly marked as
-open data use CC BY 4.0. User content and imported data retain their stated
+open data use CC BY 4.0. User content and external data retain their stated
 terms. Fork the code if you do not like it.

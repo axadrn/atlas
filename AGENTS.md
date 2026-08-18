@@ -4,6 +4,9 @@ Rules for AI agents working in this repo.
 
 ## Dev workflow
 
+- Treat installed shadcn-templ component sources as upstream code. Do not
+  modify, trim or delete them. Compose them in application code, and install
+  missing components through the shadcn-templ CLI.
 - Never run `templ generate` manually. `task dev` runs the templ watcher and
   regenerates on every change. A manual run fights the watcher, breaks the
   live dev session and forces a restart.

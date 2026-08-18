@@ -11,7 +11,6 @@ import (
 
 	"github.com/a-h/templ"
 
-	"atlas/components/placesearch"
 	"atlas/internal/catalog"
 	"atlas/pages"
 )
@@ -50,10 +49,10 @@ func setupPlaceRoutes(mux *http.ServeMux, store *catalog.Store) {
 			return
 		}
 		w.Header().Set("Cache-Control", "public, max-age=60")
-		templ.Handler(placesearch.Results(results)).ServeHTTP(w, r)
+		templ.Handler(pages.PlaceSearchResults(results)).ServeHTTP(w, r)
 	})
 
-	mux.HandleFunc("GET /api/map/cities", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /api/map/places", func(w http.ResponseWriter, r *http.Request) {
 		limit := 150
 		if value := r.URL.Query().Get("limit"); value != "" {
 			parsed, err := strconv.Atoi(value)
@@ -63,9 +62,9 @@ func setupPlaceRoutes(mux *http.ServeMux, store *catalog.Store) {
 			}
 			limit = parsed
 		}
-		results, err := store.MapCities(r.Context(), limit)
+		results, err := store.MapPlaces(r.Context(), limit)
 		if err != nil {
-			log.Printf("map cities: %v", err)
+			log.Printf("map places: %v", err)
 			writeAPIError(w, http.StatusInternalServerError, "map data failed")
 			return
 		}
@@ -90,7 +89,26 @@ func setupPlaceRoutes(mux *http.ServeMux, store *catalog.Store) {
 			http.Error(w, "Could not load this place.", http.StatusInternalServerError)
 			return
 		}
-		templ.Handler(pages.Place(place, sources)).ServeHTTP(w, r)
+		var country *catalog.PlaceSummary
+		var destinations []catalog.PlaceSummary
+		switch place.Kind {
+		case catalog.PlaceKindCountry:
+			destinations, err = store.DestinationsByCountry(r.Context(), place.CountryCode, 24)
+			if err != nil {
+				log.Printf("country destinations: %v", err)
+				http.Error(w, "Could not load this place.", http.StatusInternalServerError)
+				return
+			}
+		case catalog.PlaceKindDestination:
+			parent, err := store.CountryByCode(r.Context(), place.CountryCode)
+			if err != nil {
+				log.Printf("place country: %v", err)
+				http.Error(w, "Could not load this place.", http.StatusInternalServerError)
+				return
+			}
+			country = &parent
+		}
+		templ.Handler(pages.Place(place, country, sources, destinations)).ServeHTTP(w, r)
 	})
 }
 

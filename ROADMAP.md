@@ -16,22 +16,22 @@ written principles instead of memory.
 ## 1. The world
 
 - Add SQLite migrations and a typed Go storage layer.
-- Import global country, region and city identities with stable external IDs.
-- Add source and license tracking to every imported dataset.
+- Curate global country and destination identities with stable Atlas IDs.
+- Track the source and license of every externally sourced fact.
 - Build an interactive map using OpenStreetMap-derived data and replaceable
   tile infrastructure.
 - Build local place search without depending on the public Nominatim service.
-- Create country and city routes with coverage and freshness states.
+- Create country and destination routes with coverage and freshness states.
 - Define the first public aggregate schema without exposing the application
   database or raw community submissions.
 
-Exit condition: a visitor can explore the world, find a city and understand
-what Atlas knows and does not know about it.
+Exit condition: a visitor can explore the world, find a destination and
+understand what Atlas knows and does not know about it.
 
 ## 2. Community alpha
 
 - Add passkey-first accounts and secure sessions.
-- Add optional profiles and private-by-default city presence.
+- Add optional profiles and private-by-default destination presence.
 - Define the first structured observation categories.
 - Build rotating quests for missing and stale data.
 - Add contribution receipts and clear publication states.
@@ -41,7 +41,7 @@ what Atlas knows and does not know about it.
 - Add action-specific rate limits and the first coordination signals.
 
 Exit condition: a new user can contribute in under a minute, understand what
-happened to the contribution and return to continue building a city.
+happened to the contribution and return to continue building a destination.
 
 ## 3. Trust and useful aggregates
 
@@ -55,7 +55,7 @@ happened to the contribution and return to continue building a city.
 - Run recovery, abuse and privacy drills before increasing reach.
 
 Exit condition: a burst of new or coordinated accounts cannot materially move
-a city aggregate without independent evidence and time.
+a destination aggregate without independent evidence and time.
 
 ## 4. Community governance
 

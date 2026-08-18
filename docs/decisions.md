@@ -10,26 +10,25 @@ evidence should reopen it.
 
 **Status:** accepted
 
-Atlas uses a global place model, world map, currencies, units, time zones,
-languages and localized names from the first release. No country or region is
-the default worldview.
+Atlas uses a global place model, world map, currencies, units and time zones
+from the first release. No country or region is the default worldview.
 
 This wins because global participation is part of the product loop, not a
 later translation project. Uneven data depth is acceptable and becomes visible
 through coverage and freshness quests.
 
-The cost is more careful place identity, localization and disputed-geography
-modeling from the beginning.
+The cost is uneven initial coverage. Localization and disputed-geography
+features are added when the product can present them correctly.
 
 Reconsider only if global scope prevents a usable public alpha from shipping.
-The fallback would reduce imported depth, not replace the global data model.
+The fallback would reduce catalog depth, not replace the global data model.
 
 ## 2. Database-first with selective public data
 
 **Status:** accepted
 
 SQLite is the source of truth for live application data. Git contains code,
-migrations, definitions, policies, importers and documentation. The live
+migrations, definitions, policies and documentation. The live
 database and raw community data are never published as a dump.
 
 This wins because high-volume observations, review state, privacy and
@@ -129,8 +128,8 @@ policies, but are not permanent production dependencies.
 Place pages use a locally pinned MapLibre GL JS renderer with OpenFreeMap as
 the initial vector tile and style provider. The provider URL is isolated from
 place identity and camera data, so Atlas can switch providers or self-host
-without changing place records. Country camera bounds are derived from the
-GeoNames city coordinates Atlas already imports. They frame useful destination
+without changing place records. Country camera bounds are derived from stored
+destination coordinates. They frame useful destination
 coverage rather than claiming to be exact political geometry.
 
 This wins because the map data is global, open and community maintained. A
@@ -187,44 +186,41 @@ requires explicit review before any secondary use.
 Reconsider individual tools based on demand, risk and maintenance cost. Keep
 the separation between public community knowledge and private user workflows.
 
-## 10. Snapshot external data instead of live page dependencies
+## 10. Store external facts instead of adding live page dependencies
 
 **Status:** accepted
 
-Atlas imports external datasets into a normalized read model. Public page
-requests do not depend on GeoNames, Wikidata, OpenStreetMap data APIs or other
-upstreams being available at that moment.
+Atlas stores externally sourced facts in its normalized read model. Public
+page requests do not depend on GeoNames, Wikidata or other catalog APIs being
+available at that moment.
 
-This wins because checksummed snapshots are fast, reproducible, cacheable and
-auditable. A failed or malformed update cannot partially change public data,
-and an upstream outage does not take Atlas pages down.
+This wins because stored facts with source links and retrieval dates are fast
+and inspectable, and an upstream outage does not take Atlas pages down.
 
-The cost is bounded staleness and scheduled importer work. Every value must
-therefore expose its source and relevant date instead of implying that stored
-data is live.
+The cost is bounded staleness. Every value must expose its source and relevant
+date instead of implying that stored data is live.
 
 Use live requests only for genuinely fast-changing data where a bounded cache
-and graceful fallback exist, such as weather. Reconsider each refresh interval
-from observed change frequency, upstream limits and product impact. Preserve
-source snapshots and atomic publication.
+and graceful fallback exist, such as weather. Preserve source attribution and
+atomic database writes.
 
 ## 11. Atlas owns place identity
 
 **Status:** accepted
 
-Every place has a stable Atlas ID. Provider IDs from GeoNames, OpenStreetMap,
-Wikidata and future sources are replaceable external references. Community
+Every place has a stable Atlas ID. `place_sources` links that identity to
+replaceable GeoNames, OpenStreetMap, Wikidata and future records. Community
 records reference only the Atlas ID.
 
-This wins because changing a source or merging a duplicate must not break
-ratings, contributions, saved places or URLs. A confirmed merge keeps a small
-redirect record from the old Atlas ID to the surviving one.
+This wins because changing a source must not break ratings, contributions,
+saved places or URLs.
 
-The cost is a careful matching step for each new provider. Exact IDs can match
-automatically. Ambiguous name and location matches require review.
+The cost is a careful matching step for each new provider. Ambiguous name and
+location matches require review. The launch schema keeps one source registry
+and one place-to-source link instead of snapshots or field-level lineage.
 
-Reconsider matching rules as real provider overlap is measured. Keep Atlas IDs
-stable and merges lossless.
+Reconsider matching and merge support only when real duplicates appear. Keep
+Atlas IDs stable.
 
 ## 12. Keep database access direct until generation pays for itself
 
@@ -255,3 +251,23 @@ Official references:
 - [`sqlc` database and language support](https://docs.sqlc.dev/en/latest/reference/language-support.html)
 - [`sqlx`](https://jmoiron.github.io/sqlx/)
 - [`pgx/v5`](https://pkg.go.dev/github.com/jackc/pgx/v5)
+
+## 13. Keep the live place catalog only in SQLite
+
+**Status:** accepted
+
+Atlas curates its own place selection and stable IDs directly in SQLite. A
+temporary offline process may initialize an empty development catalog, but it
+does not remain as a production pipeline or a second source of truth.
+
+This wins because Atlas needs destinations such as cities, islands and areas,
+not a mirror of a geographical provider. Application actions can add or change
+places without synchronizing Git files or rerunning a global catalog job.
+
+The cost is that a fresh database needs an intentional initialization or a
+backup restore. Externally sourced facts retain their provider, external record,
+contribution description, retrieval date and license. Atlas owns the curation,
+not every upstream fact.
+
+Reconsider a durable import or synchronization system only after repetitive
+manual maintenance becomes a measured problem.

@@ -23,54 +23,28 @@ func TestPlaceRoutes(t *testing.T) {
 	t.Cleanup(func() { db.Close() })
 	store := catalog.NewStore(db)
 
-	population := int64(3_426_354)
-	place := catalog.Place{
-		ID:          "plc_berlin_routes",
-		Slug:        "berlin-2950159",
-		Kind:        catalog.PlaceKindCity,
-		Status:      catalog.PlaceStatusActive,
-		CountryCode: "DE",
-		Coordinates: &catalog.Coordinates{Latitude: 52.52437, Longitude: 13.41053},
-		Timezone:    "Europe/Berlin",
-		Population:  &population,
-	}
-	if err := store.UpsertPlace(ctx, place); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.UpsertPlaceName(ctx, catalog.PlaceName{
-		PlaceID:     place.ID,
-		LanguageTag: "und",
-		Name:        "Berlin",
-		Kind:        "common",
-		Preferred:   true,
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.UpsertSource(ctx, catalog.Source{
-		ID:          "src_geonames_test",
-		Name:        "GeoNames",
-		Publisher:   "GeoNames",
-		HomepageURL: "https://www.geonames.org/",
-		LicenseName: "CC BY 4.0",
-		LicenseURL:  "https://creativecommons.org/licenses/by/4.0/",
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.AddSourceSnapshot(ctx, catalog.SourceSnapshot{
-		ID:             "snp_geonames_test",
-		SourceID:       "src_geonames_test",
-		RetrievedAt:    "2026-08-17T12:00:00Z",
-		ChecksumSHA256: strings.Repeat("a", 64),
-		OriginURL:      "https://download.geonames.org/export/dump/cities5000.zip",
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.UpsertExternalReference(ctx, catalog.ExternalReference{
-		Provider:         "geonames",
-		ExternalID:       "2950159",
-		PlaceID:          place.ID,
-		SourceSnapshotID: "snp_geonames_test",
-	}); err != nil {
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO places (
+			id, slug, name, kind, country_code, latitude, longitude, timezone, population
+		) VALUES (
+			'plc_germany_routes', 'germany', 'Germany', 'country', 'DE',
+			NULL, NULL, NULL, 84000000
+		);
+		INSERT INTO places (
+			id, slug, name, kind, country_code, latitude, longitude, timezone, population
+		) VALUES (
+			'plc_berlin_routes', 'berlin-2950159', 'Berlin', 'destination', 'DE',
+			52.52437, 13.41053, 'Europe/Berlin', 3426354
+		);
+		INSERT INTO sources (id, name, homepage_url, license_name, license_url)
+		VALUES ('geonames', 'GeoNames', 'https://www.geonames.org/', 'CC BY 4.0', 'https://creativecommons.org/licenses/by/4.0/');
+		INSERT INTO place_sources (
+			place_id, source_id, external_id, record_url, contribution, retrieved_at
+		) VALUES (
+			'plc_berlin_routes', 'geonames', '2950159', 'https://www.geonames.org/2950159',
+			'Name, country code, coordinates, population and timezone', '2026-08-17T12:00:00Z'
+		);
+	`); err != nil {
 		t.Fatal(err)
 	}
 
@@ -94,7 +68,7 @@ func TestPlaceRoutes(t *testing.T) {
 
 	t.Run("map", func(t *testing.T) {
 		response := httptest.NewRecorder()
-		mux.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/map/cities?limit=20", nil))
+		mux.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/map/places?limit=20", nil))
 		if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"latitude":52.52437`) {
 			t.Fatalf("unexpected response: %d %s", response.Code, response.Body.String())
 		}
@@ -117,7 +91,13 @@ func TestPlaceRoutes(t *testing.T) {
 			!strings.Contains(response.Body.String(), "data-map-canvas") ||
 			!strings.Contains(response.Body.String(), "/assets/vendor/maplibre-gl-csp-5.24.0.js") ||
 			!strings.Contains(response.Body.String(), "/assets/js/place-map.js") ||
-			!strings.Contains(response.Body.String(), "data-place-sources") ||
+			!strings.Contains(response.Body.String(), `aria-controls="place-sources"`) ||
+			!strings.Contains(response.Body.String(), `data-slot="sheet-content"`) ||
+			!strings.Contains(response.Body.String(), `role="dialog"`) ||
+			!strings.Contains(response.Body.String(), `href="/places/germany"`) ||
+			!strings.Contains(response.Body.String(), "Germany") ||
+			!strings.Contains(response.Body.String(), "Contribution") ||
+			!strings.Contains(response.Body.String(), "Source record 2950159") ||
 			!strings.Contains(response.Body.String(), "GeoNames") ||
 			!strings.Contains(response.Body.String(), "CC BY 4.0") {
 			t.Fatalf("unexpected response: %d %s", response.Code, response.Body.String())

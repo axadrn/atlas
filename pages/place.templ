@@ -6,8 +6,11 @@ import (
 	"time"
 
 	"atlas/components/badge"
+	"atlas/components/breadcrumb"
+	"atlas/components/button"
 	"atlas/components/card"
 	"atlas/components/icon"
+	"atlas/components/sheet"
 	"atlas/internal/catalog"
 	"atlas/layouts"
 )
@@ -45,22 +48,10 @@ func placeMapAttributes(place catalog.PlaceSummary) templ.Attributes {
 }
 
 func placeTimezoneLabel(place catalog.PlaceSummary) string {
-	if place.Kind == catalog.PlaceKindCountry || place.Kind == catalog.PlaceKindTerritory {
-		return "Time zones"
-	}
 	return "Timezone"
 }
 
 func placeTimezone(place catalog.PlaceSummary) string {
-	if place.Kind == catalog.PlaceKindCountry || place.Kind == catalog.PlaceKindTerritory {
-		if len(place.Timezones) == 1 {
-			return place.Timezones[0]
-		}
-		if len(place.Timezones) > 1 {
-			return fmt.Sprintf("%d time zones", len(place.Timezones))
-		}
-		return "Not available yet"
-	}
 	if place.Timezone == "" {
 		return "Not available yet"
 	}
@@ -75,7 +66,7 @@ func sourceDate(value string) string {
 	return retrievedAt.Format("2 Jan 2006")
 }
 
-templ Place(place catalog.PlaceSummary, sources []catalog.SourceAttribution) {
+templ Place(place catalog.PlaceSummary, country *catalog.PlaceSummary, sources []catalog.SourceAttribution, destinations []catalog.PlaceSummary) {
 	@layouts.Base(place.Name + " | Atlas", true) {
 		<main class="mx-auto min-h-dvh w-full max-w-6xl px-5 py-6 sm:px-8 sm:py-10">
 			<header class="mb-10">
@@ -83,6 +74,29 @@ templ Place(place catalog.PlaceSummary, sources []catalog.SourceAttribution) {
 			</header>
 			<div class="grid gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.35fr)] lg:items-start">
 				<section class="min-w-0">
+					if country != nil {
+						@breadcrumb.Breadcrumb(breadcrumb.Props{Class: "mb-4"}) {
+							@breadcrumb.List() {
+								@breadcrumb.Item() {
+									@breadcrumb.Link(breadcrumb.LinkProps{Href: "/"}) {
+										Atlas
+									}
+								}
+								@breadcrumb.Separator()
+								@breadcrumb.Item() {
+									@breadcrumb.Link(breadcrumb.LinkProps{Href: "/places/" + country.Slug}) {
+										{ country.Name }
+									}
+								}
+								@breadcrumb.Separator()
+								@breadcrumb.Item() {
+									@breadcrumb.Page() {
+										{ place.Name }
+									}
+								}
+							}
+						}
+					}
 					<div class="mb-2 flex items-center gap-2">
 						<p class="text-sm font-medium uppercase tracking-[0.18em] text-primary">{ place.CountryCode }</p>
 						@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
@@ -94,48 +108,61 @@ templ Place(place catalog.PlaceSummary, sources []catalog.SourceAttribution) {
 						A live place page built from sourced public data. Community signals, costs and practical nomad knowledge come next.
 					</p>
 					if len(sources) > 0 {
-						<div class="mt-5" data-place-sources>
-							<details class="group/source relative inline-block">
-								<summary class="flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+						<div class="mt-5">
+							@sheet.Sheet(sheet.Props{ID: "place-sources"}) {
+								@button.Button(button.Props{
+									Variant:    button.VariantGhost,
+									Size:       button.SizeSm,
+									Class:      "-ml-2 text-muted-foreground",
+									Attributes: sheet.Trigger(ctx),
+								}) {
 									@icon.Database(icon.Props{Class: "size-4"})
-									Data source
-									@icon.ChevronDown(icon.Props{Class: "size-3.5 transition-transform group-open/source:rotate-180"})
-								</summary>
-								<div class="absolute left-0 top-full z-30 hidden w-[min(22rem,calc(100vw-2.5rem))] pt-2 group-hover/source:block group-focus-within/source:block group-open/source:block">
-									@card.Card(card.Props{Size: card.SizeSm, Class: "gap-4 bg-popover text-popover-foreground shadow-md"}) {
-										@card.Header() {
-											@card.Title() {
-												Source details
-											}
-											@card.Description() {
-												Where this place record came from and when Atlas retrieved it.
-											}
+									Sources
+								}
+								@sheet.Content(sheet.ContentProps{Class: "w-full overflow-y-auto sm:max-w-md"}) {
+									@sheet.Header() {
+										@sheet.Title(sheet.TitleProps{Class: "font-heading text-xl font-semibold"}) {
+											Sources
 										}
-										@card.Content(card.ContentProps{Class: "space-y-4"}) {
+										@sheet.Description() {
+											What each provider contributed to this place. Atlas may select, normalize and combine source data.
+										}
+									}
+									<div class="space-y-4 px-4 pb-6">
 											for _, source := range sources {
-												<div class="space-y-2 border-t pt-4 first:border-t-0 first:pt-0">
+												<div class="space-y-3 rounded-xl border bg-card p-4">
 													<div class="flex items-start justify-between gap-3">
-														<div>
-															<a class="font-medium underline-offset-4 hover:underline" href={ templ.SafeURL(source.HomepageURL) } target="_blank" rel="noreferrer">{ source.Name }</a>
-															<p class="text-xs text-muted-foreground">Published by { source.Publisher }</p>
-														</div>
+														<a class="font-medium underline-offset-4 hover:underline" href={ templ.SafeURL(source.HomepageURL) } target="_blank" rel="noreferrer">{ source.Name }</a>
 														@badge.Badge(badge.Props{Variant: badge.VariantOutline}) {
 															{ source.LicenseName }
 														}
 													</div>
-													<p class="text-xs text-muted-foreground">Imported { sourceDate(source.RetrievedAt) }</p>
+													<div>
+														<p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Contribution</p>
+														<p class="mt-1 text-sm">{ source.Contribution }</p>
+													</div>
+													<p class="text-xs text-muted-foreground">Retrieved { sourceDate(source.RetrievedAt) }</p>
 													<p class="flex flex-wrap gap-x-3 gap-y-1 text-xs">
-														<a class="underline underline-offset-2" href={ templ.SafeURL(source.OriginURL) } target="_blank" rel="noreferrer">Exact dataset</a>
+														if source.RecordURL != "" {
+															<a class="underline underline-offset-2" href={ templ.SafeURL(source.RecordURL) } target="_blank" rel="noreferrer">Source record { source.ExternalID }</a>
+														}
 														if source.LicenseURL != "" {
 															<a class="underline underline-offset-2" href={ templ.SafeURL(source.LicenseURL) } target="_blank" rel="noreferrer">License</a>
 														}
 													</p>
 												</div>
 											}
-										}
-									}
-								</div>
-							</details>
+											<div class="space-y-3 rounded-xl border bg-card p-4">
+												<p class="font-medium">Map</p>
+												<p class="text-sm">Map data from OpenStreetMap contributors. Vector tiles and styles delivered by OpenFreeMap.</p>
+												<p class="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+													<a class="underline underline-offset-2" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap license</a>
+													<a class="underline underline-offset-2" href="https://openfreemap.org/" target="_blank" rel="noreferrer">OpenFreeMap</a>
+												</p>
+											</div>
+									</div>
+								}
+							}
 						</div>
 					}
 					@card.Card(card.Props{Size: card.SizeSm, Class: "mt-10 gap-0 overflow-hidden rounded-2xl py-0 shadow-sm"}) {
@@ -176,6 +203,25 @@ templ Place(place catalog.PlaceSummary, sources []catalog.SourceAttribution) {
 					}
 				}
 			</div>
+			if len(destinations) > 0 {
+				<section class="mt-12">
+					<div class="mb-5">
+						<h2 class="font-heading text-2xl font-bold tracking-tight">Places to explore</h2>
+						<p class="mt-1 text-sm text-muted-foreground">Curated destinations in { place.Name }.</p>
+					</div>
+					<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+						for _, destination := range destinations {
+							<a href={ templ.SafeURL("/places/" + destination.Slug) } class="rounded-xl border bg-card p-4 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+								<div class="flex items-start justify-between gap-3">
+									<h3 class="font-heading text-base font-semibold">{ destination.Name }</h3>
+									<span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{ destination.CountryCode }</span>
+								</div>
+								<p class="mt-2 text-sm text-muted-foreground">{ placePopulation(destination.Population) }</p>
+							</a>
+						}
+					</div>
+				</section>
+			}
 		</main>
 	}
 }
