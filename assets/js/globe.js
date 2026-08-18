@@ -60,11 +60,13 @@
   }
   loadColors();
 
-  let W = 0, H = 0, R = 0, CX = 0, CY = 0;
+  // U scales every absolute pixel value (markers, labels, arcs) with the
+  // globe, so the drawing looks identical at any size.
+  let W = 0, H = 0, R = 0, CX = 0, CY = 0, U = 1;
   function resize() {
     const parent = canvas.parentElement;
-    // Fit the available box so the one page hero never scrolls.
-		const size = Math.max(0, Math.min(parent.clientWidth, parent.clientHeight, 620));
+    // Fill the available box so the one page hero never scrolls.
+    const size = Math.max(0, Math.min(parent.clientWidth, parent.clientHeight));
     const dpr = window.devicePixelRatio || 1;
     canvas.style.width = size + "px";
     canvas.style.height = size + "px";
@@ -73,15 +75,17 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     W = size; H = size;
     CX = W / 2; CY = H / 2;
-		R = size * 0.48;
+    R = size * 0.48;
+    U = size / 620;
   }
   resize();
+  new ResizeObserver(resize).observe(canvas.parentElement);
   window.addEventListener("resize", resize);
 
   // ry spins around the axis. The tilt is fixed at a pleasant angle plus a
   // small springy offset from vertical dragging.
   const TILT = 0.3;
-  const IDLE_SPIN = 0.0022;
+  const IDLE_SPIN = 0.0016;
   let ry = -0.8, vy = IDLE_SPIN, tiltOffset = 0;
   let dragging = false, lastX = 0, lastY = 0;
   let mouseX = -1, mouseY = -1;
@@ -167,9 +171,10 @@
       buckets[Math.min(N - 1, Math.floor(p[2] * N))].push(p);
     }
     const dot = W / 340;
-    ctx.fillStyle = colFg;
+    // Muted continents keep the visual weight on the hubs and arcs.
+    ctx.fillStyle = colMuted;
     for (let b = 0; b < N; b++) {
-      ctx.globalAlpha = 0.2 + (b / (N - 1)) * 0.65;
+      ctx.globalAlpha = 0.3 + (b / (N - 1)) * 0.6;
       ctx.beginPath();
       for (const p of buckets[b]) {
         ctx.moveTo(p[0] + dot, p[1]);
@@ -183,7 +188,7 @@
   let hovered = -1;
   function drawPlaces() {
     hovered = -1;
-    let best = 169;
+    let best = (13 * U) ** 2;
     const pts = [];
     for (let i = 0; i < placeVecs.length; i++) {
       const p = project(rotate(placeVecs[i]));
@@ -195,11 +200,11 @@
     }
     ctx.save();
     ctx.shadowColor = colPrimary;
-    ctx.shadowBlur = 8;
+    ctx.shadowBlur = 8 * U;
     for (let i = 0; i < pts.length; i++) {
       const p = pts[i];
       if (p[2] <= 0) continue;
-      const r = i === hovered ? 5 : 2.4 + p[2] * 1.2;
+      const r = (i === hovered ? 5 : 2.4 + p[2] * 1.2) * U;
       ctx.fillStyle = colPrimary;
       ctx.globalAlpha = 0.65 + 0.35 * p[2];
       ctx.beginPath();
@@ -210,11 +215,11 @@
     ctx.globalAlpha = 1;
     if (hovered >= 0) {
       const p = pts[hovered];
-      ctx.font = "600 13px Inter, ui-sans-serif, system-ui, sans-serif";
+      ctx.font = `600 ${Math.round(13 * U)}px Inter, ui-sans-serif, system-ui, sans-serif`;
       ctx.fillStyle = colFg;
       const label = PLACES[hovered][0];
       const w = ctx.measureText(label).width;
-      ctx.fillText(label, Math.min(Math.max(p[0] - w / 2, 4), W - w - 4), p[1] - 12);
+      ctx.fillText(label, Math.min(Math.max(p[0] - w / 2, 4), W - w - 4), p[1] - 12 * U);
       canvas.style.cursor = "pointer";
     } else {
       canvas.style.cursor = dragging ? "grabbing" : "grab";
@@ -222,7 +227,7 @@
   }
 
   function drawArcs() {
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.5 * U;
     ctx.strokeStyle = colPrimary;
     for (const arc of arcs) {
       arc.t += arc.speed;
@@ -245,7 +250,7 @@
         ctx.globalAlpha = 0.85 * head[2];
         ctx.fillStyle = colPrimary;
         ctx.beginPath();
-        ctx.arc(head[0], head[1], 1.8, 0, Math.PI * 2);
+        ctx.arc(head[0], head[1], 1.8 * U, 0, Math.PI * 2);
         ctx.fill();
       }
     }

@@ -71,7 +71,7 @@
   --chart-3: oklch(0.6 0.118 184.704);
   --chart-4: oklch(0.511 0.096 186.391);
   --chart-5: oklch(0.437 0.078 188.216);
-  --radius: 0.625rem;
+  --radius: 0.75rem;
   --sidebar: oklch(0.987 0.002 197.1);
   --sidebar-foreground: oklch(0.148 0.004 228.8);
   --sidebar-primary: oklch(0.6 0.118 184.704);
@@ -122,5 +122,54 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Rotating audience word in the home hero. The words stack in one grid cell
+   so the line keeps the width of the longest word and never reflows. */
+.word-cycle {
+  display: inline-grid;
+  text-align: center;
+  vertical-align: bottom;
+}
+.word-cycle > span {
+  grid-area: 1 / 1;
+  opacity: 0;
+  animation: word-cycle 12.5s infinite;
+}
+.word-cycle > span:nth-child(2) {
+  animation-delay: 2.5s;
+}
+.word-cycle > span:nth-child(3) {
+  animation-delay: 5s;
+}
+.word-cycle > span:nth-child(4) {
+  animation-delay: 7.5s;
+}
+.word-cycle > span:nth-child(5) {
+  animation-delay: 10s;
+}
+@keyframes word-cycle {
+  0% {
+    opacity: 0;
+    transform: translateY(0.5em);
+  }
+  4%,
+  18% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  22%,
+  100% {
+    opacity: 0;
+    transform: translateY(-0.5em);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .word-cycle > span {
+    animation: none;
+  }
+  .word-cycle > span:first-child {
+    opacity: 1;
   }
 }

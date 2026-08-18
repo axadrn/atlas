@@ -3,7 +3,6 @@ package pages
 import (
 	"fmt"
 
-	"atlas/components/badge"
 	"atlas/components/combobox"
 	"atlas/internal/catalog"
 	"atlas/layouts"
@@ -98,28 +97,27 @@ templ PlaceSearchResults(places []catalog.PlaceSummary) {
 templ Home(stars int, places []catalog.PlaceSummary) {
 	@layouts.Base("atlas", false) {
 		@navigation(false, stars)
-		<main class="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col justify-between overflow-hidden px-5 py-5 sm:px-8">
-			<section class="flex shrink-0 flex-col items-center gap-4 text-center">
-				@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
-					coming soon
-				}
-				<h1 class="max-w-2xl text-balance font-heading text-3xl font-bold tracking-tight sm:text-5xl">
-					The open source home for digital nomads.
-				</h1>
-				<p class="max-w-xl text-pretty text-base text-muted-foreground sm:text-lg">
-					Explore sourced destinations and community-verified nomad knowledge,
-					international from day one.
+		<main class="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden px-5 sm:px-8">
+			<div class="flex min-h-0 flex-1 flex-col items-center gap-5 py-8 sm:gap-7 sm:py-12">
+				<section class="flex w-full shrink-0 flex-col items-center gap-5 text-center sm:gap-6">
+					<h1 class="max-w-3xl text-balance font-heading text-4xl font-bold tracking-tight sm:text-5xl xl:text-6xl">
+						Find your next base.
+					</h1>
+					<p class="max-w-xl text-pretty text-base text-muted-foreground sm:text-lg">
+						The open source travel companion for{ " " }
+						<span class="sr-only">digital nomads</span>
+						<span class="word-cycle font-medium text-foreground" aria-hidden="true"><span>digital nomads</span><span>perpetual travellers</span><span>remote workers</span><span>Weltenbummler</span><span>globetrotters</span></span>.
+						Sourced destinations, community-verified knowledge, no paywalls.
+					</p>
+					@placeSearch()
+				</section>
+				<div class="flex min-h-0 w-full flex-1 items-center justify-center">
+					<canvas id="globe" class="block touch-none"></canvas>
+				</div>
+				<p id="globe-caption" class="shrink-0 text-center text-sm text-muted-foreground">
+					Spin the globe. Pick a place.
 				</p>
-				@placeSearch()
-			</section>
-			<div class="flex min-h-0 w-full flex-1 items-center justify-center py-2">
-				<canvas id="globe" class="block touch-none"></canvas>
 			</div>
-			<footer class="flex shrink-0 flex-col items-center gap-3">
-				<p id="globe-caption" class="min-h-5 text-center text-sm text-muted-foreground">
-					Drag the globe. Select a destination.
-				</p>
-			</footer>
 		</main>
 		@templ.JSONScript("atlas-globe-places", globePlaceData(places))
 		<script nonce={ templ.GetNonce(ctx) } src="/assets/js/landmask.js"></script>
