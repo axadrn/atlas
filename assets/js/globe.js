@@ -64,7 +64,7 @@
   function resize() {
     const parent = canvas.parentElement;
     // Fit the available box so the one page hero never scrolls.
-    const size = Math.max(260, Math.min(parent.clientWidth, parent.clientHeight, 620));
+		const size = Math.max(0, Math.min(parent.clientWidth, parent.clientHeight, 620));
     const dpr = window.devicePixelRatio || 1;
     canvas.style.width = size + "px";
     canvas.style.height = size + "px";

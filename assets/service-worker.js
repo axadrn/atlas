@@ -1,4 +1,4 @@
-const CACHE_NAME = "atlas-static-v1";
+const CACHE_NAME = "atlas-static-v2";
 const OFFLINE_URL = "/offline";
 const PRECACHE = [
   OFFLINE_URL,

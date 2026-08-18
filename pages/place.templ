@@ -107,8 +107,8 @@ func sourceDate(value string) string {
 
 templ Place(place catalog.PlaceSummary, ancestors []catalog.PlaceSummary, sources []catalog.SourceAttribution, children []catalog.PlaceSummary) {
 	@layouts.Base(place.Name + " | Atlas", true) {
-		@navigation()
-		<main class="mx-auto min-h-[calc(100dvh-5rem)] w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-10">
+		@navigation(true)
+		<main class="mx-auto min-h-[calc(100dvh-4.5rem)] w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-10">
 			<div class="grid gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.35fr)] lg:items-start">
 				<section class="min-w-0">
 					if len(ancestors) > 0 {
