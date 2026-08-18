@@ -73,7 +73,7 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     W = size; H = size;
     CX = W / 2; CY = H / 2;
-    R = size * 0.46;
+		R = size * 0.48;
   }
   resize();
   window.addEventListener("resize", resize);
