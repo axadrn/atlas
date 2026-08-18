@@ -161,15 +161,30 @@ must never become a trust shortcut merely because it is easy to collect.
 Atlas is allowed to make money. Revenue cannot buy truth, moderation power,
 rating weight or better placement disguised as community consensus.
 
-Possible paid value includes advanced comparisons, alerts, planning tools,
-exports, higher API limits, support and clearly labeled partner services. The
-public provenance of data and the right to correct it remain available to
-everyone.
+Atlas is free for individual users. All of it, including future features,
+forever. People are never the customers. Revenue comes from organizations:
+
+- companies pay for the public community data in machine-readable form,
+  such as API access, bulk exports and freshness guarantees;
+- employers pay to post jobs in front of the community;
+- cities and tourism boards pay for reports;
+- clearly labeled sponsors pay for visibility, never for placement in the
+  data or in rankings;
+- open source and public interest funding can bridge the early years.
+
+Personal data is never sold or shared. What organizations buy is convenient
+access to knowledge that any person can already read for free on the site.
+The public provenance of data and the right to correct it remain available
+to everyone. The growth reasoning behind this model lives in
+[Growth](growth.md).
 
 ## Nomad Toolbox
 
-The Nomad Toolbox is a general paid product surface, not one predetermined
-tool. It can contain small, focused utilities for planning, tracking,
+The Nomad Toolbox is a general product surface, not one predetermined tool.
+It is free for individual users like everything else in Atlas. Its job is
+single-player value: utilities that are useful to one person with zero
+community, so the platform is worth visiting before the community exists.
+It can contain small, focused utilities for planning, tracking,
 documentation, logistics, finances, administration and compliance.
 
 Individual tools are chosen from observed user problems. A tax presence

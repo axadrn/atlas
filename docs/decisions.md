@@ -169,15 +169,16 @@ separation between measurements, opinions and sourced claims.
 
 ## 9. The Nomad Toolbox is a product surface
 
-**Status:** accepted
+**Status:** accepted, revised by decision 17
 
-Atlas can monetize a changing collection of focused private tools for nomad
+Atlas builds a changing collection of focused private tools for nomad
 planning, tracking, documentation, logistics, finances, administration and
 compliance. Specific examples are opportunities to validate, not commitments
-that define the platform.
+that define the platform. Since decision 17 the tools are free for
+individual users and their role is single-player value, not direct revenue.
 
-This wins because public place data can acquire users while private tools solve
-high-value individual problems and support recurring revenue.
+This wins because private tools solve high-value individual problems and
+give the platform utility before the community exists.
 
 The cost is a wider product surface and different security requirements for
 each tool. Toolbox data must remain separate from community contributions and
@@ -333,3 +334,30 @@ Build native iOS and Android clients together with Expo and React Native when
 push notifications, background work, camera access, reliable offline workflows
 or platform integrations create measured value. The native clients reuse the
 versioned API rather than embedding the website or duplicating business rules.
+
+## 17. Free forever for individuals, organizations pay
+
+**Status:** accepted (2026-08-18)
+
+Everything an individual user touches is free, including the Nomad Toolbox
+and future features. Revenue comes from organizations: structured data
+access, job postings, reports for cities and tourism boards, clearly
+labeled sponsorship and public interest funding during the early years.
+Sponsorship buys visibility, never truth: sponsors appear in community
+data, rankings and comparisons exactly as if the deal did not exist, and
+negative community data about a sponsor is not a termination event.
+
+This wins because every platform that became the biggest of its kind is
+free for its users, and network effects are the only path to that goal.
+Paid memberships would cap growth, and payment proves nothing about
+honesty, so a paywall would not even help against manipulation (decision 6).
+Free tools are also the answer to the cold start problem: they are useful
+to one person before any community exists.
+
+The cost is that revenue arrives late and must be built actively on the
+organization side. The early years run on savings, grants and patience.
+
+Reconsider the organization-side mix freely as evidence arrives. Do not
+reconsider charging individual users; that promise is load-bearing for
+growth, positioning and trust. See [Growth](growth.md) for the full
+reasoning.
