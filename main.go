@@ -33,7 +33,10 @@ func main() {
 	mux := http.NewServeMux()
 	setupAssetsRoutes(mux)
 	store := catalog.NewStore(db)
-	setupPlaceRoutes(mux, store)
+	// Generous for humans typing in the search, tight enough that nobody
+	// grills SQLite with a request loop.
+	fragmentLimiter := newRateLimiter(5, 20)
+	setupPlaceRoutes(mux, store, fragmentLimiter)
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		places, err := store.MapPlaces(r.Context(), 150)
 		if err != nil {
@@ -44,9 +47,18 @@ func main() {
 	})
 	// Lazy-loaded by htmx after page load, so a slow GitHub API response
 	// never blocks page rendering.
-	mux.HandleFunc("GET /fragments/github-stars", func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("GET /fragments/github-stars", withRateLimit(fragmentLimiter, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=300")
 		templ.Handler(pages.GithubStars(githubStars())).ServeHTTP(w, r)
+	})))
+	mux.HandleFunc("GET /credits", func(w http.ResponseWriter, r *http.Request) {
+		sources, err := store.Sources(r.Context())
+		if err != nil {
+			log.Printf("credits sources: %v", err)
+			http.Error(w, "Could not load the credits page.", http.StatusInternalServerError)
+			return
+		}
+		templ.Handler(pages.Credits(sources)).ServeHTTP(w, r)
 	})
 	mux.Handle("GET /offline", templ.Handler(pages.Offline()))
 	// The bare "/" pattern catches every path no other route matched.

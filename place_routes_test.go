@@ -61,7 +61,7 @@ func TestPlaceRoutes(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	setupPlaceRoutes(mux, store)
+	setupPlaceRoutes(mux, store, newRateLimiter(1000, 1000))
 
 	t.Run("unversioned JSON APIs stay private", func(t *testing.T) {
 		for _, path := range []string{"/api/places?q=ber", "/api/map/places?limit=20"} {

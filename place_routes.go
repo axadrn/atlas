@@ -13,8 +13,8 @@ import (
 	"atlas/pages"
 )
 
-func setupPlaceRoutes(mux *http.ServeMux, store *catalog.Store) {
-	mux.HandleFunc("GET /fragments/place-search", func(w http.ResponseWriter, r *http.Request) {
+func setupPlaceRoutes(mux *http.ServeMux, store *catalog.Store, fragmentLimiter *rateLimiter) {
+	mux.Handle("GET /fragments/place-search", withRateLimit(fragmentLimiter, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		query := strings.TrimSpace(r.URL.Query().Get("q"))
 		if utf8.RuneCountInString(query) > 100 {
 			http.Error(w, "Query must be 100 characters or fewer.", http.StatusBadRequest)
@@ -28,7 +28,7 @@ func setupPlaceRoutes(mux *http.ServeMux, store *catalog.Store) {
 		}
 		w.Header().Set("Cache-Control", "public, max-age=60")
 		templ.Handler(pages.PlaceSearchResults(results)).ServeHTTP(w, r)
-	})
+	})))
 
 	mux.HandleFunc("GET /places/{slug}", func(w http.ResponseWriter, r *http.Request) {
 		place, err := store.PlaceBySlug(r.Context(), r.PathValue("slug"))
