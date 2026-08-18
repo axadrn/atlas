@@ -9,7 +9,7 @@ import (
 
 templ Offline() {
 	@layouts.Base("Offline | Atlas", false) {
-		@navigation(false, 0)
+		@navigation(false)
 		<main class="mx-auto flex w-full max-w-lg flex-1 items-center px-6 py-12">
 			@card.Card(card.Props{Class: "w-full rounded-2xl text-center"}) {
 				@card.Header() {

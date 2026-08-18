@@ -8,6 +8,7 @@ import (
 	"atlas/components/icon"
 	"atlas/components/sheet"
 	"atlas/layouts"
+	"atlas/utils"
 )
 
 func formatStars(stars int) string {
@@ -15,6 +16,21 @@ func formatStars(stars int) string {
 		return fmt.Sprintf("%.1fk", float64(stars)/1000)
 	}
 	return fmt.Sprintf("%d", stars)
+}
+
+// GithubStars is the fragment htmx swaps into the star counters after page
+// load, so a slow GitHub API call never blocks rendering.
+templ GithubStars(stars int) {
+	{ formatStars(stars) }
+}
+
+// starCount lazy-loads the star counter via htmx once the page is up.
+templ starCount(class string) {
+	<span
+		class={ utils.CN("tabular-nums", class) }
+		hx-get="/fragments/github-stars"
+		hx-trigger="load"
+	></span>
 }
 
 templ githubMark() {
@@ -73,7 +89,7 @@ templ installDialog() {
 	}
 }
 
-templ mobileNavigation(stars int) {
+templ mobileNavigation() {
 	@sheet.Sheet(sheet.Props{ID: "mobile-navigation"}) {
 		@button.Button(button.Props{
 			Variant:    button.VariantGhost,
@@ -102,7 +118,8 @@ templ mobileNavigation(stars int) {
 					Class:   "w-full justify-start",
 				}) {
 					@githubMark()
-					GitHub ({ formatStars(stars) })
+					GitHub
+					@starCount("before:content-['('] after:content-[')']")
 				}
 				@layouts.ThemeSwitcher("w-full justify-start", "Toggle theme")
 			</nav>
@@ -113,7 +130,7 @@ templ mobileNavigation(stars int) {
 	}
 }
 
-templ navigation(showSearch bool, stars int) {
+templ navigation(showSearch bool) {
 	<header class="sticky top-0 z-40 border-b bg-background/95 supports-backdrop-filter:bg-background/85 supports-backdrop-filter:backdrop-blur-lg">
 		<nav class="mx-auto flex h-20 w-full max-w-6xl items-center gap-3 px-6 sm:gap-5 sm:px-8" aria-label="Main navigation">
 			<a href="/" class="shrink-0 font-heading text-xl font-bold tracking-tight">atlas<span class="text-primary">.</span></a>
@@ -136,12 +153,12 @@ templ navigation(showSearch bool, stars int) {
 				}) {
 					@githubMark()
 					<span class="sr-only">GitHub stars:</span>
-					<span class="tabular-nums">{ formatStars(stars) }</span>
+					@starCount("")
 				}
 				@installAction("Install", button.VariantSecondary, "", false)
 				@layouts.ThemeSwitcher("shrink-0", "")
 			</div>
-			@mobileNavigation(stars)
+			@mobileNavigation()
 		</nav>
 		@installDialog()
 	</header>

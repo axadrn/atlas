@@ -33,14 +33,20 @@ func main() {
 	mux := http.NewServeMux()
 	setupAssetsRoutes(mux)
 	store := catalog.NewStore(db)
-	setupPlaceRoutes(mux, store, githubStars)
+	setupPlaceRoutes(mux, store)
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		places, err := store.MapPlaces(r.Context(), 150)
 		if err != nil {
 			log.Printf("home map places: %v", err)
 			places = []catalog.PlaceSummary{}
 		}
-		templ.Handler(pages.Home(githubStars(), places)).ServeHTTP(w, r)
+		templ.Handler(pages.Home(places)).ServeHTTP(w, r)
+	})
+	// Lazy-loaded by htmx after page load, so a slow GitHub API response
+	// never blocks page rendering.
+	mux.HandleFunc("GET /fragments/github-stars", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=300")
+		templ.Handler(pages.GithubStars(githubStars())).ServeHTTP(w, r)
 	})
 	mux.Handle("GET /offline", templ.Handler(pages.Offline()))
 	// The bare "/" pattern catches every path no other route matched.
@@ -79,7 +85,7 @@ func main() {
 }
 
 func renderNotFound(w http.ResponseWriter, r *http.Request) {
-	templ.Handler(pages.NotFound(githubStars()), templ.WithStatus(http.StatusNotFound)).ServeHTTP(w, r)
+	templ.Handler(pages.NotFound(), templ.WithStatus(http.StatusNotFound)).ServeHTTP(w, r)
 }
 
 func databasePath() string {

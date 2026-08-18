@@ -37,6 +37,7 @@ templ Base(title string, mapEnabled bool) {
 				<script nonce={ templ.GetNonce(ctx) } src="/assets/js/place-map.js" defer></script>
 			}
 			@components.Scripts()
+			<script nonce={ templ.GetNonce(ctx) } src="/assets/vendor/htmx-4.0.0-beta6.min.js" defer></script>
 			<script nonce={ templ.GetNonce(ctx) } src="/assets/js/place-search.js" defer></script>
 			<script nonce={ templ.GetNonce(ctx) } src="/assets/js/pwa.js" defer></script>
 		</head>
