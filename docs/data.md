@@ -50,10 +50,26 @@ The catalog starts with four tables:
 places and future community records. Provider IDs can change without moving
 community data.
 
+Keys follow one rule set, decided August 2026:
+
+- Entity tables get a generated ID with a table-unique prefix and a random
+  payload, Stripe style. Registry: `plc_` places. Reserved for later: `usr_`
+  users, `obs_` observations, `rpt_` reports. A prefix is never reused.
+- Small curated lookup tables use their name as the key, like
+  `sources.id = 'geonames'`. Code reads them by name.
+- Pure link tables use the pair as composite primary key, like
+  `place_sources (place_id, source_id)`. No surrogate ID. If a link ever
+  becomes an entity that other tables reference, it gets a prefixed ID in
+  that migration.
+
+Random payloads stay random on purpose: time-sortable IDs (UUIDv7, ULID)
+only pay off at high insert volume and leak creation time, which matters
+once user IDs exist.
+
 Place geography and product selection are separate:
 
-- `place_type` describes what a row is: `country`, `region`, `locality`, `city`,
-  `town`, `island` or `neighborhood`;
+- `place_type` describes what a row is: `country`, `region`, `locality` or
+  `neighborhood`;
 - `parent_id` creates the useful hierarchy, such as country to city to
   neighborhood;
 - `is_destination` controls whether Atlas promotes a place on maps and lists.
