@@ -73,7 +73,7 @@ templ PlaceSearchResults(places []catalog.PlaceSummary) {
 		}) {
 			<span class="min-w-0 flex-1">
 				<span class="block truncate font-medium">{ place.Name }</span>
-				<span class="block text-xs text-muted-foreground">{ place.CountryCode } · { string(place.Kind) }</span>
+				<span class="block text-xs text-muted-foreground">{ place.CountryCode } · { placeTypeLabel(place.Type) }</span>
 			</span>
 			if place.Population != nil {
 				<span class="shrink-0 pr-1 text-xs tabular-nums text-muted-foreground">{ searchPopulation(place.Population) }</span>

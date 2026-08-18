@@ -48,14 +48,53 @@ func placeMapAttributes(place catalog.PlaceSummary) templ.Attributes {
 }
 
 func placeTimezoneLabel(place catalog.PlaceSummary) string {
+	if len(place.Timezones) > 1 {
+		return "Time zones"
+	}
 	return "Timezone"
 }
 
 func placeTimezone(place catalog.PlaceSummary) string {
-	if place.Timezone == "" {
+	if len(place.Timezones) == 0 {
 		return "Not available yet"
 	}
-	return place.Timezone
+	if len(place.Timezones) == 1 {
+		return place.Timezones[0]
+	}
+	return fmt.Sprintf("%d time zones", len(place.Timezones))
+}
+
+func placeTypeLabel(placeType catalog.PlaceType) string {
+	switch placeType {
+	case catalog.PlaceTypeCountry:
+		return "Country"
+	case catalog.PlaceTypeRegion:
+		return "Region"
+	case catalog.PlaceTypeCity:
+		return "City"
+	case catalog.PlaceTypeTown:
+		return "Town"
+	case catalog.PlaceTypeIsland:
+		return "Island"
+	case catalog.PlaceTypeNeighborhood:
+		return "Neighborhood"
+	default:
+		return "Locality"
+	}
+}
+
+func childSectionTitle(place catalog.PlaceSummary) string {
+	if place.Type == catalog.PlaceTypeCity || place.Type == catalog.PlaceTypeTown || place.Type == catalog.PlaceTypeLocality {
+		return "Neighborhoods"
+	}
+	return "Places to explore"
+}
+
+func childSectionDescription(place catalog.PlaceSummary) string {
+	if place.Type == catalog.PlaceTypeCity || place.Type == catalog.PlaceTypeTown || place.Type == catalog.PlaceTypeLocality {
+		return "Neighborhoods to explore in " + place.Name + "."
+	}
+	return "Curated destinations in " + place.Name + "."
 }
 
 func sourceDate(value string) string {
@@ -66,7 +105,7 @@ func sourceDate(value string) string {
 	return retrievedAt.Format("2 Jan 2006")
 }
 
-templ Place(place catalog.PlaceSummary, country *catalog.PlaceSummary, sources []catalog.SourceAttribution, destinations []catalog.PlaceSummary) {
+templ Place(place catalog.PlaceSummary, ancestors []catalog.PlaceSummary, sources []catalog.SourceAttribution, children []catalog.PlaceSummary) {
 	@layouts.Base(place.Name + " | Atlas", true) {
 		<main class="mx-auto min-h-dvh w-full max-w-6xl px-5 py-6 sm:px-8 sm:py-10">
 			<header class="mb-10">
@@ -74,7 +113,7 @@ templ Place(place catalog.PlaceSummary, country *catalog.PlaceSummary, sources [
 			</header>
 			<div class="grid gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.35fr)] lg:items-start">
 				<section class="min-w-0">
-					if country != nil {
+					if len(ancestors) > 0 {
 						@breadcrumb.Breadcrumb(breadcrumb.Props{Class: "mb-4"}) {
 							@breadcrumb.List() {
 								@breadcrumb.Item() {
@@ -82,10 +121,12 @@ templ Place(place catalog.PlaceSummary, country *catalog.PlaceSummary, sources [
 										Atlas
 									}
 								}
-								@breadcrumb.Separator()
-								@breadcrumb.Item() {
-									@breadcrumb.Link(breadcrumb.LinkProps{Href: "/places/" + country.Slug}) {
-										{ country.Name }
+								for _, ancestor := range ancestors {
+									@breadcrumb.Separator()
+									@breadcrumb.Item() {
+										@breadcrumb.Link(breadcrumb.LinkProps{Href: "/places/" + ancestor.Slug}) {
+											{ ancestor.Name }
+										}
 									}
 								}
 								@breadcrumb.Separator()
@@ -100,7 +141,7 @@ templ Place(place catalog.PlaceSummary, country *catalog.PlaceSummary, sources [
 					<div class="mb-2 flex items-center gap-2">
 						<p class="text-sm font-medium uppercase tracking-[0.18em] text-primary">{ place.CountryCode }</p>
 						@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
-							{ string(place.Kind) }
+							{ placeTypeLabel(place.Type) }
 						}
 					</div>
 					<h1 class="min-w-0 break-words font-heading text-4xl font-bold tracking-tight sm:text-5xl xl:text-6xl">{ place.Name }</h1>
@@ -129,37 +170,43 @@ templ Place(place catalog.PlaceSummary, country *catalog.PlaceSummary, sources [
 										}
 									}
 									<div class="space-y-4 px-4 pb-6">
-											for _, source := range sources {
-												<div class="space-y-3 rounded-xl border bg-card p-4">
-													<div class="flex items-start justify-between gap-3">
-														<a class="font-medium underline-offset-4 hover:underline" href={ templ.SafeURL(source.HomepageURL) } target="_blank" rel="noreferrer">{ source.Name }</a>
-														@badge.Badge(badge.Props{Variant: badge.VariantOutline}) {
-															{ source.LicenseName }
-														}
-													</div>
-													<div>
-														<p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Contribution</p>
-														<p class="mt-1 text-sm">{ source.Contribution }</p>
-													</div>
-													<p class="text-xs text-muted-foreground">Retrieved { sourceDate(source.RetrievedAt) }</p>
-													<p class="flex flex-wrap gap-x-3 gap-y-1 text-xs">
-														if source.RecordURL != "" {
-															<a class="underline underline-offset-2" href={ templ.SafeURL(source.RecordURL) } target="_blank" rel="noreferrer">Source record { source.ExternalID }</a>
-														}
-														if source.LicenseURL != "" {
-															<a class="underline underline-offset-2" href={ templ.SafeURL(source.LicenseURL) } target="_blank" rel="noreferrer">License</a>
-														}
-													</p>
-												</div>
-											}
+										for _, source := range sources {
 											<div class="space-y-3 rounded-xl border bg-card p-4">
-												<p class="font-medium">Map</p>
-												<p class="text-sm">Map data from OpenStreetMap contributors. Vector tiles and styles delivered by OpenFreeMap.</p>
+												<div class="flex items-start justify-between gap-3">
+													<a class="font-medium underline-offset-4 hover:underline" href={ templ.SafeURL(source.HomepageURL) } target="_blank" rel="noreferrer">{ source.Name }</a>
+													@badge.Badge(badge.Props{Variant: badge.VariantOutline}) {
+														{ source.LicenseName }
+													}
+												</div>
+												<div>
+													<p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Contribution</p>
+													<p class="mt-1 text-sm">{ source.Contribution }</p>
+												</div>
+												<p class="text-xs text-muted-foreground">Retrieved { sourceDate(source.RetrievedAt) }</p>
 												<p class="flex flex-wrap gap-x-3 gap-y-1 text-xs">
-													<a class="underline underline-offset-2" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap license</a>
-													<a class="underline underline-offset-2" href="https://openfreemap.org/" target="_blank" rel="noreferrer">OpenFreeMap</a>
+													if source.RecordURL != "" {
+														<a class="underline underline-offset-2" href={ templ.SafeURL(source.RecordURL) } target="_blank" rel="noreferrer">
+															if source.ExternalID != "" {
+																Source record { source.ExternalID }
+															} else {
+																Source map
+															}
+														</a>
+													}
+													if source.LicenseURL != "" {
+														<a class="underline underline-offset-2" href={ templ.SafeURL(source.LicenseURL) } target="_blank" rel="noreferrer">License</a>
+													}
 												</p>
 											</div>
+										}
+										<div class="space-y-3 rounded-xl border bg-card p-4">
+											<p class="font-medium">Map</p>
+											<p class="text-sm">Map data from OpenStreetMap contributors. Vector tiles and styles delivered by OpenFreeMap.</p>
+											<p class="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+												<a class="underline underline-offset-2" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap license</a>
+												<a class="underline underline-offset-2" href="https://openfreemap.org/" target="_blank" rel="noreferrer">OpenFreeMap</a>
+											</p>
+										</div>
 									</div>
 								}
 							}
@@ -203,20 +250,22 @@ templ Place(place catalog.PlaceSummary, country *catalog.PlaceSummary, sources [
 					}
 				}
 			</div>
-			if len(destinations) > 0 {
+			if len(children) > 0 {
 				<section class="mt-12">
 					<div class="mb-5">
-						<h2 class="font-heading text-2xl font-bold tracking-tight">Places to explore</h2>
-						<p class="mt-1 text-sm text-muted-foreground">Curated destinations in { place.Name }.</p>
+						<h2 class="font-heading text-2xl font-bold tracking-tight">{ childSectionTitle(place) }</h2>
+						<p class="mt-1 text-sm text-muted-foreground">{ childSectionDescription(place) }</p>
 					</div>
 					<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-						for _, destination := range destinations {
-							<a href={ templ.SafeURL("/places/" + destination.Slug) } class="rounded-xl border bg-card p-4 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+						for _, child := range children {
+							<a href={ templ.SafeURL("/places/" + child.Slug) } class="rounded-xl border bg-card p-4 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
 								<div class="flex items-start justify-between gap-3">
-									<h3 class="font-heading text-base font-semibold">{ destination.Name }</h3>
-									<span class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{ destination.CountryCode }</span>
+									<h3 class="font-heading text-base font-semibold">{ child.Name }</h3>
+									<span class="text-xs font-medium text-muted-foreground">{ placeTypeLabel(child.Type) }</span>
 								</div>
-								<p class="mt-2 text-sm text-muted-foreground">{ placePopulation(destination.Population) }</p>
+								if child.Population != nil {
+									<p class="mt-2 text-sm text-muted-foreground">{ placePopulation(child.Population) }</p>
+								}
 							</a>
 						}
 					</div>

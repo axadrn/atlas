@@ -89,26 +89,19 @@ func setupPlaceRoutes(mux *http.ServeMux, store *catalog.Store) {
 			http.Error(w, "Could not load this place.", http.StatusInternalServerError)
 			return
 		}
-		var country *catalog.PlaceSummary
-		var destinations []catalog.PlaceSummary
-		switch place.Kind {
-		case catalog.PlaceKindCountry:
-			destinations, err = store.DestinationsByCountry(r.Context(), place.CountryCode, 24)
-			if err != nil {
-				log.Printf("country destinations: %v", err)
-				http.Error(w, "Could not load this place.", http.StatusInternalServerError)
-				return
-			}
-		case catalog.PlaceKindDestination:
-			parent, err := store.CountryByCode(r.Context(), place.CountryCode)
-			if err != nil {
-				log.Printf("place country: %v", err)
-				http.Error(w, "Could not load this place.", http.StatusInternalServerError)
-				return
-			}
-			country = &parent
+		ancestors, err := store.AncestorsForPlace(r.Context(), place)
+		if err != nil {
+			log.Printf("place ancestors: %v", err)
+			http.Error(w, "Could not load this place.", http.StatusInternalServerError)
+			return
 		}
-		templ.Handler(pages.Place(place, country, sources, destinations)).ServeHTTP(w, r)
+		children, err := store.ChildrenByParent(r.Context(), place.ID, 50)
+		if err != nil {
+			log.Printf("place children: %v", err)
+			http.Error(w, "Could not load this place.", http.StatusInternalServerError)
+			return
+		}
+		templ.Handler(pages.Place(place, ancestors, sources, children)).ServeHTTP(w, r)
 	})
 }
 

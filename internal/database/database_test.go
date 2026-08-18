@@ -23,8 +23,8 @@ func TestOpenAppliesMigrationsAndPragmas(t *testing.T) {
 	if err := db.QueryRowContext(ctx, "SELECT count(*) FROM schema_migrations").Scan(&migrations); err != nil {
 		t.Fatal(err)
 	}
-	if migrations != 1 {
-		t.Fatalf("expected 1 migration, got %d", migrations)
+	if migrations != 2 {
+		t.Fatalf("expected 2 migrations, got %d", migrations)
 	}
 
 	var foreignKeys int
@@ -67,7 +67,7 @@ func TestOpenIsIdempotent(t *testing.T) {
 	if err := second.QueryRowContext(ctx, "SELECT count(*) FROM schema_migrations").Scan(&migrations); err != nil {
 		t.Fatal(err)
 	}
-	if migrations != 1 {
-		t.Fatalf("expected migration to run once, got %d records", migrations)
+	if migrations != 2 {
+		t.Fatalf("expected each migration to run once, got %d records", migrations)
 	}
 }

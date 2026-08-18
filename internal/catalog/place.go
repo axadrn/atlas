@@ -1,10 +1,15 @@
 package catalog
 
-type PlaceKind string
+type PlaceType string
 
 const (
-	PlaceKindCountry     PlaceKind = "country"
-	PlaceKindDestination PlaceKind = "destination"
+	PlaceTypeCountry      PlaceType = "country"
+	PlaceTypeRegion       PlaceType = "region"
+	PlaceTypeLocality     PlaceType = "locality"
+	PlaceTypeCity         PlaceType = "city"
+	PlaceTypeTown         PlaceType = "town"
+	PlaceTypeIsland       PlaceType = "island"
+	PlaceTypeNeighborhood PlaceType = "neighborhood"
 )
 
 type Coordinates struct {
@@ -23,11 +28,13 @@ type PlaceSummary struct {
 	ID          string       `json:"id"`
 	Slug        string       `json:"slug"`
 	Name        string       `json:"name"`
-	Kind        PlaceKind    `json:"kind"`
+	Type        PlaceType    `json:"type"`
+	ParentID    string       `json:"parent_id,omitempty"`
 	CountryCode string       `json:"country_code"`
+	Destination bool         `json:"is_destination"`
 	Coordinates *Coordinates `json:"coordinates,omitempty"`
 	Bounds      *Bounds      `json:"bounds,omitempty"`
-	Timezone    string       `json:"timezone,omitempty"`
+	Timezones   []string     `json:"timezones,omitempty"`
 	Population  *int64       `json:"population,omitempty"`
 }
 

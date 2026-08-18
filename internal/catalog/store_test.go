@@ -20,8 +20,9 @@ func TestStoreReadsCatalog(t *testing.T) {
 	}
 	t.Cleanup(func() { db.Close() })
 
-	insertPlace(t, db, "plc_de", "germany", "Germany", "country", "DE", nil, nil, nil, 84_000_000)
-	insertPlace(t, db, "plc_berlin", "berlin-2950159", "Berlin", "destination", "DE", 52.52437, 13.41053, "Europe/Berlin", 3_426_354)
+	insertPlace(t, db, "plc_de", "germany", "Germany", "country", nil, "DE", false, nil, nil, "Europe/Berlin", 84_000_000)
+	insertPlace(t, db, "plc_berlin", "berlin-2950159", "Berlin", "city", "plc_de", "DE", true, 52.52437, 13.41053, "Europe/Berlin", 3_426_354)
+	insertPlace(t, db, "plc_mitte", "mitte-berlin", "Mitte", "neighborhood", "plc_berlin", "DE", false, 52.5200, 13.4050, "", nil)
 	store := catalog.NewStore(db)
 
 	results, err := store.SearchPlaces(ctx, "ber", 10)
@@ -40,7 +41,7 @@ func TestStoreReadsCatalog(t *testing.T) {
 		t.Fatalf("unexpected map places: %#v", mapPlaces)
 	}
 
-	destinations, err := store.DestinationsByCountry(ctx, "DE", 10)
+	destinations, err := store.ChildrenByParent(ctx, "plc_de", 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,28 +49,37 @@ func TestStoreReadsCatalog(t *testing.T) {
 		t.Fatalf("unexpected destinations: %#v", destinations)
 	}
 
-	country, err := store.CountryByCode(ctx, "DE")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if country.Name != "Germany" || country.Slug != "germany" {
-		t.Fatalf("unexpected country: %#v", country)
-	}
-
 	place, err := store.PlaceBySlug(ctx, "berlin-2950159")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if place.ID != "plc_berlin" || place.Timezone != "Europe/Berlin" {
+	if place.ID != "plc_berlin" || len(place.Timezones) != 1 || place.Timezones[0] != "Europe/Berlin" {
 		t.Fatalf("unexpected place: %#v", place)
+	}
+	ancestors, err := store.AncestorsForPlace(ctx, place)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ancestors) != 1 || ancestors[0].Name != "Germany" {
+		t.Fatalf("unexpected ancestors: %#v", ancestors)
+	}
+
+	neighborhood, err := store.PlaceBySlug(ctx, "mitte-berlin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(neighborhood.Timezones) != 1 || neighborhood.Timezones[0] != "Europe/Berlin" {
+		t.Fatalf("expected inherited timezone, got %#v", neighborhood.Timezones)
+	}
+	ancestors, err = store.AncestorsForPlace(ctx, neighborhood)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ancestors) != 2 || ancestors[0].Name != "Germany" || ancestors[1].Name != "Berlin" {
+		t.Fatalf("unexpected neighborhood ancestors: %#v", ancestors)
 	}
 
 	_, err = store.PlaceBySlug(ctx, "missing")
-	if !errors.Is(err, catalog.ErrPlaceNotFound) {
-		t.Fatalf("expected ErrPlaceNotFound, got %v", err)
-	}
-
-	_, err = store.CountryByCode(ctx, "XX")
 	if !errors.Is(err, catalog.ErrPlaceNotFound) {
 		t.Fatalf("expected ErrPlaceNotFound, got %v", err)
 	}
@@ -84,7 +94,7 @@ func TestStoreReadsPlaceSources(t *testing.T) {
 	}
 	t.Cleanup(func() { db.Close() })
 
-	insertPlace(t, db, "plc_berlin", "berlin-2950159", "Berlin", "destination", "DE", 52.52437, 13.41053, "Europe/Berlin", 3_426_354)
+	insertPlace(t, db, "plc_berlin", "berlin-2950159", "Berlin", "city", nil, "DE", true, 52.52437, 13.41053, "Europe/Berlin", 3_426_354)
 	if _, err := db.ExecContext(ctx, `
 		INSERT INTO sources (id, name, homepage_url, license_name, license_url)
 		VALUES ('geonames', 'GeoNames', 'https://www.geonames.org/', 'CC BY 4.0', 'https://creativecommons.org/licenses/by/4.0/')
@@ -120,9 +130,9 @@ func TestStoreDerivesDateLineSafeCountryBounds(t *testing.T) {
 	}
 	t.Cleanup(func() { db.Close() })
 
-	insertPlace(t, db, "plc_fj", "fiji", "Fiji", "country", "FJ", nil, nil, nil, 930_000)
-	insertPlace(t, db, "plc_suva", "suva", "Suva", "destination", "FJ", -18.1416, 178.4419, "Pacific/Fiji", 93_970)
-	insertPlace(t, db, "plc_levuka", "levuka", "Levuka", "destination", "FJ", -17.6833, -179.3, "Pacific/Fiji", 1_130)
+	insertPlace(t, db, "plc_fj", "fiji", "Fiji", "country", nil, "FJ", false, nil, nil, "Pacific/Fiji", 930_000)
+	insertPlace(t, db, "plc_suva", "suva", "Suva", "city", "plc_fj", "FJ", true, -18.1416, 178.4419, "Pacific/Fiji", 93_970)
+	insertPlace(t, db, "plc_levuka", "levuka", "Levuka", "town", "plc_fj", "FJ", true, -17.6833, -179.3, "Pacific/Fiji", 1_130)
 
 	place, err := catalog.NewStore(db).PlaceBySlug(ctx, "fiji")
 	if err != nil {
@@ -135,13 +145,21 @@ func TestStoreDerivesDateLineSafeCountryBounds(t *testing.T) {
 
 func insertPlace(t *testing.T, db interface {
 	ExecContext(context.Context, string, ...any) (sql.Result, error)
-}, id, slug, name, kind, countryCode string, latitude, longitude, timezone any, population int64) {
+}, id, slug, name, placeType string, parentID any, countryCode string, destination bool, latitude, longitude any, timezone string, population any) {
 	t.Helper()
 	if _, err := db.ExecContext(context.Background(), `
 		INSERT INTO places (
-			id, slug, name, kind, country_code, latitude, longitude, timezone, population
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, id, slug, name, kind, countryCode, latitude, longitude, timezone, population); err != nil {
+			id, slug, name, place_type, parent_id, country_code, is_destination,
+			latitude, longitude, population
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, id, slug, name, placeType, parentID, countryCode, destination, latitude, longitude, population); err != nil {
 		t.Fatal(err)
+	}
+	if timezone != "" {
+		if _, err := db.ExecContext(context.Background(), `
+			INSERT INTO place_timezones (place_id, timezone_id) VALUES (?, ?)
+		`, id, timezone); err != nil {
+			t.Fatal(err)
+		}
 	}
 }

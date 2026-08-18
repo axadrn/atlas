@@ -271,3 +271,26 @@ not every upstream fact.
 
 Reconsider a durable import or synchronization system only after repetitive
 manual maintenance becomes a measured problem.
+
+## 14. Use one sparse place hierarchy
+
+**Status:** accepted
+
+Atlas keeps countries, regions, localities, cities, towns, islands and
+neighborhoods in one `places` table. An optional `parent_id` forms the
+hierarchy. `is_destination` is a separate product flag and is not a geographic
+type.
+
+This wins because ratings, observations, URLs and source links can reference
+one stable Atlas ID at every level. Source records and classifications can
+change without moving community data. The model supports country to city to
+neighborhood without requiring every administrative level in between.
+
+The cost is deliberate curation. Atlas does not pretend that one global source
+models traveler-facing places consistently. Missing hierarchy levels are valid,
+and ambiguous places keep the neutral `locality` type until Atlas has evidence
+for something more precise.
+
+Reconsider separate tables only if different place types develop materially
+different identity or lifecycle rules. Do not add a full administrative
+registry without a product feature that needs it.

@@ -16,12 +16,12 @@ written principles instead of memory.
 ## 1. The world
 
 - Add SQLite migrations and a typed Go storage layer.
-- Curate global country and destination identities with stable Atlas IDs.
+- Curate global place identities and useful hierarchies with stable Atlas IDs.
 - Track the source and license of every externally sourced fact.
 - Build an interactive map using OpenStreetMap-derived data and replaceable
   tile infrastructure.
 - Build local place search without depending on the public Nominatim service.
-- Create country and destination routes with coverage and freshness states.
+- Create place routes with parent navigation, coverage and freshness states.
 - Define the first public aggregate schema without exposing the application
   database or raw community submissions.
 

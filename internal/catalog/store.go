@@ -30,8 +30,8 @@ func (s *Store) SearchPlaces(ctx context.Context, query string, limit int) ([]Pl
 	prefix := escapeLike(query) + "%"
 
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, slug, name, kind, country_code, latitude, longitude,
-		       COALESCE(timezone, ''), population
+		SELECT id, slug, name, place_type, parent_id, country_code,
+		       is_destination, latitude, longitude, population
 		FROM places
 		WHERE name LIKE ? ESCAPE '\' COLLATE NOCASE
 		ORDER BY
@@ -55,10 +55,10 @@ func (s *Store) SearchPlaces(ctx context.Context, query string, limit int) ([]Pl
 func (s *Store) MapPlaces(ctx context.Context, limit int) ([]PlaceSummary, error) {
 	limit = boundedLimit(limit, 150, 500)
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, slug, name, kind, country_code, latitude, longitude,
-		       COALESCE(timezone, ''), population
+		SELECT id, slug, name, place_type, parent_id, country_code,
+		       is_destination, latitude, longitude, population
 		FROM places
-		WHERE kind = 'destination'
+		WHERE is_destination = 1
 			AND latitude IS NOT NULL
 			AND longitude IS NOT NULL
 		ORDER BY population DESC NULLS LAST, name COLLATE NOCASE
@@ -72,45 +72,45 @@ func (s *Store) MapPlaces(ctx context.Context, limit int) ([]PlaceSummary, error
 	return scanPlaces(rows, limit)
 }
 
-func (s *Store) DestinationsByCountry(ctx context.Context, countryCode string, limit int) ([]PlaceSummary, error) {
-	limit = boundedLimit(limit, 24, 50)
+func (s *Store) ChildrenByParent(ctx context.Context, parentID string, limit int) ([]PlaceSummary, error) {
+	limit = boundedLimit(limit, 24, 100)
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, slug, name, kind, country_code, latitude, longitude,
-		       COALESCE(timezone, ''), population
+		SELECT id, slug, name, place_type, parent_id, country_code,
+		       is_destination, latitude, longitude, population
 		FROM places
-		WHERE country_code = ? AND kind = 'destination'
+		WHERE parent_id = ?
 		ORDER BY name COLLATE NOCASE
 		LIMIT ?
-	`, countryCode, limit)
+	`, parentID, limit)
 	if err != nil {
-		return nil, fmt.Errorf("list country destinations: %w", err)
+		return nil, fmt.Errorf("list child places: %w", err)
 	}
 	defer rows.Close()
 
 	return scanPlaces(rows, limit)
 }
 
-func (s *Store) CountryByCode(ctx context.Context, countryCode string) (PlaceSummary, error) {
+func (s *Store) placeByID(ctx context.Context, id string) (PlaceSummary, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, slug, name, kind, country_code, latitude, longitude,
-		       COALESCE(timezone, ''), population
+		SELECT id, slug, name, place_type, parent_id, country_code,
+		       is_destination, latitude, longitude, population
 		FROM places
-		WHERE country_code = ? AND kind = 'country'
-	`, countryCode)
-	country, err := scanPlace(row)
+		WHERE id = ?
+	`, id)
+	place, err := scanPlace(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return PlaceSummary{}, ErrPlaceNotFound
 	}
 	if err != nil {
-		return PlaceSummary{}, fmt.Errorf("get country by code: %w", err)
+		return PlaceSummary{}, fmt.Errorf("get place by id: %w", err)
 	}
-	return country, nil
+	return place, nil
 }
 
 func (s *Store) PlaceBySlug(ctx context.Context, slug string) (PlaceSummary, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, slug, name, kind, country_code, latitude, longitude,
-		       COALESCE(timezone, ''), population
+		SELECT id, slug, name, place_type, parent_id, country_code,
+		       is_destination, latitude, longitude, population
 		FROM places
 		WHERE slug = ?
 	`, slug)
@@ -121,13 +121,78 @@ func (s *Store) PlaceBySlug(ctx context.Context, slug string) (PlaceSummary, err
 	if err != nil {
 		return PlaceSummary{}, fmt.Errorf("get place by slug: %w", err)
 	}
-	if place.Kind == PlaceKindCountry {
+	if place.Type == PlaceTypeCountry {
 		place.Bounds, err = s.countryBounds(ctx, place.CountryCode)
 		if err != nil {
 			return PlaceSummary{}, err
 		}
 	}
+	place.Timezones, err = s.timezonesForPlace(ctx, place)
+	if err != nil {
+		return PlaceSummary{}, err
+	}
 	return place, nil
+}
+
+func (s *Store) AncestorsForPlace(ctx context.Context, place PlaceSummary) ([]PlaceSummary, error) {
+	ancestors := make([]PlaceSummary, 0, 3)
+	parentID := place.ParentID
+	for parentID != "" {
+		if len(ancestors) == 8 {
+			return nil, errors.New("place hierarchy exceeds eight levels")
+		}
+		parent, err := s.placeByID(ctx, parentID)
+		if err != nil {
+			return nil, fmt.Errorf("get place ancestor: %w", err)
+		}
+		ancestors = append(ancestors, parent)
+		parentID = parent.ParentID
+	}
+	for left, right := 0, len(ancestors)-1; left < right; left, right = left+1, right-1 {
+		ancestors[left], ancestors[right] = ancestors[right], ancestors[left]
+	}
+	return ancestors, nil
+}
+
+func (s *Store) timezonesForPlace(ctx context.Context, place PlaceSummary) ([]string, error) {
+	for depth := 0; depth < 8; depth++ {
+		rows, err := s.db.QueryContext(ctx, `
+			SELECT timezone_id
+			FROM place_timezones
+			WHERE place_id = ?
+			ORDER BY timezone_id
+		`, place.ID)
+		if err != nil {
+			return nil, fmt.Errorf("list place timezones: %w", err)
+		}
+		timezones := make([]string, 0, 2)
+		for rows.Next() {
+			var timezone string
+			if err := rows.Scan(&timezone); err != nil {
+				rows.Close()
+				return nil, fmt.Errorf("scan place timezone: %w", err)
+			}
+			timezones = append(timezones, timezone)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("read place timezones: %w", err)
+		}
+		if err := rows.Close(); err != nil {
+			return nil, fmt.Errorf("close place timezones: %w", err)
+		}
+		if len(timezones) > 0 {
+			return timezones, nil
+		}
+		if place.ParentID == "" {
+			return []string{}, nil
+		}
+		place, err = s.placeByID(ctx, place.ParentID)
+		if err != nil {
+			return nil, fmt.Errorf("get timezone parent: %w", err)
+		}
+	}
+	return nil, errors.New("place timezone hierarchy exceeds eight levels")
 }
 
 func (s *Store) SourcesForPlace(ctx context.Context, placeID string) ([]SourceAttribution, error) {
@@ -173,7 +238,7 @@ func (s *Store) countryBounds(ctx context.Context, countryCode string) (*Bounds,
 		SELECT longitude, latitude
 		FROM places
 		WHERE country_code = ?
-			AND kind = 'destination'
+			AND is_destination = 1
 			AND longitude IS NOT NULL
 			AND latitude IS NOT NULL
 	`, countryCode)
@@ -262,21 +327,28 @@ func scanPlaces(rows *sql.Rows, capacity int) ([]PlaceSummary, error) {
 
 func scanPlace(row rowScanner) (PlaceSummary, error) {
 	var place PlaceSummary
+	var parentID sql.NullString
+	var destination int
 	var latitude, longitude sql.NullFloat64
 	var population sql.NullInt64
 	if err := row.Scan(
 		&place.ID,
 		&place.Slug,
 		&place.Name,
-		&place.Kind,
+		&place.Type,
+		&parentID,
 		&place.CountryCode,
+		&destination,
 		&latitude,
 		&longitude,
-		&place.Timezone,
 		&population,
 	); err != nil {
 		return PlaceSummary{}, err
 	}
+	if parentID.Valid {
+		place.ParentID = parentID.String
+	}
+	place.Destination = destination == 1
 	if latitude.Valid && longitude.Valid {
 		place.Coordinates = &Coordinates{Latitude: latitude.Float64, Longitude: longitude.Float64}
 	}

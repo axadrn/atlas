@@ -27,9 +27,10 @@ application writers justify it.
 
 ## Place catalog
 
-The catalog starts with three tables:
+The catalog starts with four tables:
 
 - `places` stores the stable Atlas ID and current display fields;
+- `place_timezones` stores zero or more IANA time zone identifiers per place;
 - `sources` stores provider and license information once;
 - `place_sources` links a place to an external record and describes what that
   provider contributed.
@@ -38,13 +39,18 @@ The catalog starts with three tables:
 places and future community records. Provider IDs can change without moving
 community data.
 
-The first catalog deliberately has only two kinds:
+Place geography and product selection are separate:
 
-- `country`;
-- `destination`.
+- `place_type` describes what a row is: `country`, `region`, `locality`, `city`,
+  `town`, `island` or `neighborhood`;
+- `parent_id` creates the useful hierarchy, such as country to city to
+  neighborhood;
+- `is_destination` controls whether Atlas promotes a place on maps and lists.
 
-Destination covers cities, islands and other places a traveler can meaningfully
-evaluate. Add finer types only when a real feature needs different behavior.
+The hierarchy is intentionally sparse. Atlas stores useful destinations and
+neighborhoods, not every administrative division in the world. Missing levels
+are valid, so a city can link directly to its country. A neighborhood inherits
+its time zone from the nearest ancestor unless it has an explicit override.
 
 Names and slugs are display values, not identity. Localization, aliases,
 boundaries and merge support are added when the product needs them. They are
@@ -116,9 +122,10 @@ can be collected in the same UI drawer. Their actual records remain separate.
 
 | Source | Initial use |
 | --- | --- |
-| GeoNames | Place names, country codes, coordinates, approximate population, timezone and external IDs |
-| Natural Earth | Temporary offline selection of globally significant launch destinations |
-| OpenStreetMap | Map data and later points of interest |
+| GeoNames | Initial place names, country codes, coordinates, approximate population, time zones and external IDs |
+| IANA Time Zone Database | Country time zone identifiers |
+| OpenStreetMap | Map data, neighborhood identity and coordinates where suitable records exist |
+| Wikivoyage | Traveler-facing neighborhood identity where geographic catalogs do not model it cleanly |
 | OpenFreeMap | Initial vector tile and map style delivery |
 
 GeoNames data is available under CC BY 4.0 and without a guarantee of accuracy,
@@ -129,8 +136,9 @@ production synchronization pipeline.
 Official references:
 
 - [GeoNames data dumps](https://download.geonames.org/export/dump/)
-- [Natural Earth populated places](https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-populated-places/)
+- [IANA Time Zone Database](https://www.iana.org/time-zones)
 - [OpenStreetMap attribution](https://www.openstreetmap.org/copyright)
+- [Wikivoyage](https://www.wikivoyage.org/)
 - [OpenFreeMap](https://openfreemap.org/)
 
 ## Freshness
