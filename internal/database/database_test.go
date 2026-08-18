@@ -19,12 +19,16 @@ func TestOpenAppliesMigrationsAndPragmas(t *testing.T) {
 	}
 	t.Cleanup(func() { db.Close() })
 
+	migrationFiles, err := filepath.Glob("migrations/*.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
 	var migrations int
 	if err := db.QueryRowContext(ctx, "SELECT count(*) FROM schema_migrations").Scan(&migrations); err != nil {
 		t.Fatal(err)
 	}
-	if migrations != 2 {
-		t.Fatalf("expected 2 migrations, got %d", migrations)
+	if migrations != len(migrationFiles) {
+		t.Fatalf("expected %d migrations, got %d", len(migrationFiles), migrations)
 	}
 
 	var foreignKeys int
@@ -63,11 +67,15 @@ func TestOpenIsIdempotent(t *testing.T) {
 	}
 	t.Cleanup(func() { second.Close() })
 
+	files, err := filepath.Glob("migrations/*.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
 	var migrations int
 	if err := second.QueryRowContext(ctx, "SELECT count(*) FROM schema_migrations").Scan(&migrations); err != nil {
 		t.Fatal(err)
 	}
-	if migrations != 2 {
-		t.Fatalf("expected each migration to run once, got %d records", migrations)
+	if migrations != len(files) {
+		t.Fatalf("expected each of the %d migrations to run once, got %d records", len(files), migrations)
 	}
 }

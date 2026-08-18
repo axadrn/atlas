@@ -70,12 +70,6 @@ func placeTypeLabel(placeType catalog.PlaceType) string {
 		return "Country"
 	case catalog.PlaceTypeRegion:
 		return "Region"
-	case catalog.PlaceTypeCity:
-		return "City"
-	case catalog.PlaceTypeTown:
-		return "Town"
-	case catalog.PlaceTypeIsland:
-		return "Island"
 	case catalog.PlaceTypeNeighborhood:
 		return "Neighborhood"
 	default:
@@ -84,20 +78,18 @@ func placeTypeLabel(placeType catalog.PlaceType) string {
 }
 
 func showPlaceTypeBadge(placeType catalog.PlaceType) bool {
-	return placeType == catalog.PlaceTypeRegion ||
-		placeType == catalog.PlaceTypeIsland ||
-		placeType == catalog.PlaceTypeNeighborhood
+	return placeType == catalog.PlaceTypeRegion || placeType == catalog.PlaceTypeNeighborhood
 }
 
 func childSectionTitle(place catalog.PlaceSummary) string {
-	if place.Type == catalog.PlaceTypeCity || place.Type == catalog.PlaceTypeTown || place.Type == catalog.PlaceTypeLocality {
+	if place.Type == catalog.PlaceTypeLocality {
 		return "Neighborhoods"
 	}
 	return "Places to explore"
 }
 
 func childSectionDescription(place catalog.PlaceSummary) string {
-	if place.Type == catalog.PlaceTypeCity || place.Type == catalog.PlaceTypeTown || place.Type == catalog.PlaceTypeLocality {
+	if place.Type == catalog.PlaceTypeLocality {
 		return "Neighborhoods to explore in " + place.Name + "."
 	}
 	return "Curated destinations in " + place.Name + "."

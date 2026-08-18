@@ -6,9 +6,6 @@ const (
 	PlaceTypeCountry      PlaceType = "country"
 	PlaceTypeRegion       PlaceType = "region"
 	PlaceTypeLocality     PlaceType = "locality"
-	PlaceTypeCity         PlaceType = "city"
-	PlaceTypeTown         PlaceType = "town"
-	PlaceTypeIsland       PlaceType = "island"
 	PlaceTypeNeighborhood PlaceType = "neighborhood"
 )
 

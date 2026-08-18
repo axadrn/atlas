@@ -34,7 +34,7 @@ func TestPlaceRoutes(t *testing.T) {
 			id, slug, name, place_type, parent_id, country_code, is_destination,
 			latitude, longitude, population
 		) VALUES (
-			'plc_berlin_routes', 'berlin-2950159', 'Berlin', 'city',
+			'plc_berlin_routes', 'berlin-2950159', 'Berlin', 'locality',
 			'plc_germany_routes', 'DE', 1, 52.52437, 13.41053, 3426354
 		);
 		INSERT INTO place_timezones (place_id, timezone_id)

@@ -21,7 +21,7 @@ func TestStoreReadsCatalog(t *testing.T) {
 	t.Cleanup(func() { db.Close() })
 
 	insertPlace(t, db, "plc_de", "germany", "Germany", "country", nil, "DE", false, nil, nil, "Europe/Berlin", 84_000_000)
-	insertPlace(t, db, "plc_berlin", "berlin-2950159", "Berlin", "city", "plc_de", "DE", true, 52.52437, 13.41053, "Europe/Berlin", 3_426_354)
+	insertPlace(t, db, "plc_berlin", "berlin-2950159", "Berlin", "locality", "plc_de", "DE", true, 52.52437, 13.41053, "Europe/Berlin", 3_426_354)
 	insertPlace(t, db, "plc_mitte", "mitte-berlin", "Mitte", "neighborhood", "plc_berlin", "DE", false, 52.5200, 13.4050, "", nil)
 	store := catalog.NewStore(db)
 
@@ -94,7 +94,7 @@ func TestStoreReadsPlaceSources(t *testing.T) {
 	}
 	t.Cleanup(func() { db.Close() })
 
-	insertPlace(t, db, "plc_berlin", "berlin-2950159", "Berlin", "city", nil, "DE", true, 52.52437, 13.41053, "Europe/Berlin", 3_426_354)
+	insertPlace(t, db, "plc_berlin", "berlin-2950159", "Berlin", "locality", nil, "DE", true, 52.52437, 13.41053, "Europe/Berlin", 3_426_354)
 	if _, err := db.ExecContext(ctx, `
 		INSERT INTO sources (id, name, homepage_url, license_name, license_url)
 		VALUES ('geonames', 'GeoNames', 'https://www.geonames.org/', 'CC BY 4.0', 'https://creativecommons.org/licenses/by/4.0/')
@@ -131,8 +131,8 @@ func TestStoreDerivesDateLineSafeCountryBounds(t *testing.T) {
 	t.Cleanup(func() { db.Close() })
 
 	insertPlace(t, db, "plc_fj", "fiji", "Fiji", "country", nil, "FJ", false, nil, nil, "Pacific/Fiji", 930_000)
-	insertPlace(t, db, "plc_suva", "suva", "Suva", "city", "plc_fj", "FJ", true, -18.1416, 178.4419, "Pacific/Fiji", 93_970)
-	insertPlace(t, db, "plc_levuka", "levuka", "Levuka", "town", "plc_fj", "FJ", true, -17.6833, -179.3, "Pacific/Fiji", 1_130)
+	insertPlace(t, db, "plc_suva", "suva", "Suva", "locality", "plc_fj", "FJ", true, -18.1416, 178.4419, "Pacific/Fiji", 93_970)
+	insertPlace(t, db, "plc_levuka", "levuka", "Levuka", "locality", "plc_fj", "FJ", true, -17.6833, -179.3, "Pacific/Fiji", 1_130)
 
 	place, err := catalog.NewStore(db).PlaceBySlug(ctx, "fiji")
 	if err != nil {
