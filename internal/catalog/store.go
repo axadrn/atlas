@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -40,6 +40,7 @@ func (s *Store) SearchPlaces(ctx context.Context, query string, limit int) ([]Pl
 				WHEN name LIKE ? ESCAPE '\' COLLATE NOCASE THEN 1
 				ELSE 2
 			END,
+			curated_rank IS NULL, curated_rank,
 			population DESC NULLS LAST,
 			name COLLATE NOCASE
 		LIMIT ?
@@ -61,7 +62,8 @@ func (s *Store) MapPlaces(ctx context.Context, limit int) ([]PlaceSummary, error
 		WHERE is_destination = 1
 			AND latitude IS NOT NULL
 			AND longitude IS NOT NULL
-		ORDER BY population DESC NULLS LAST, name COLLATE NOCASE
+		ORDER BY curated_rank IS NULL, curated_rank,
+			population DESC NULLS LAST, name COLLATE NOCASE
 		LIMIT ?
 	`, limit)
 	if err != nil {
@@ -79,7 +81,8 @@ func (s *Store) ChildrenByParent(ctx context.Context, parentID string, limit int
 		       is_destination, latitude, longitude, population
 		FROM places
 		WHERE parent_id = ?
-		ORDER BY name COLLATE NOCASE
+		ORDER BY curated_rank IS NULL, curated_rank,
+			population DESC NULLS LAST, name COLLATE NOCASE
 		LIMIT ?
 	`, parentID, limit)
 	if err != nil {
@@ -148,14 +151,12 @@ func (s *Store) AncestorsForPlace(ctx context.Context, place PlaceSummary) ([]Pl
 		ancestors = append(ancestors, parent)
 		parentID = parent.ParentID
 	}
-	for left, right := 0, len(ancestors)-1; left < right; left, right = left+1, right-1 {
-		ancestors[left], ancestors[right] = ancestors[right], ancestors[left]
-	}
+	slices.Reverse(ancestors)
 	return ancestors, nil
 }
 
 func (s *Store) timezonesForPlace(ctx context.Context, place PlaceSummary) ([]string, error) {
-	for depth := 0; depth < 8; depth++ {
+	for range 8 {
 		rows, err := s.db.QueryContext(ctx, `
 			SELECT timezone_id
 			FROM place_timezones
@@ -279,7 +280,7 @@ func minimalLongitudeRange(longitudes []float64) (float64, float64) {
 	for index, longitude := range longitudes {
 		normalized[index] = math.Mod(longitude+360, 360)
 	}
-	sort.Float64s(normalized)
+	slices.Sort(normalized)
 
 	largestGap := -1.0
 	largestGapIndex := 0
