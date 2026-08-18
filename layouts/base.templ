@@ -40,9 +40,9 @@ templ Base(title string, mapEnabled bool) {
 			<script nonce={ templ.GetNonce(ctx) } src="/assets/js/place-search.js" defer></script>
 			<script nonce={ templ.GetNonce(ctx) } src="/assets/js/pwa.js" defer></script>
 		</head>
-		<body class="flex min-h-dvh flex-col">
+		<body class="grid min-h-dvh grid-rows-[auto_minmax(0,1fr)_auto]">
 			{ children... }
-			<footer class="mt-auto shrink-0">
+			<footer>
 				<div class="mx-auto w-full max-w-6xl px-4 xl:px-6">
 					<div class="flex items-center justify-between py-2">
 						<div class="w-full px-1 text-center text-xs leading-loose text-muted-foreground sm:text-sm">
