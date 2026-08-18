@@ -1,0 +1,34 @@
+package pages
+
+import (
+	"atlas/components/button"
+	"atlas/components/empty"
+	"atlas/components/icon"
+	"atlas/layouts"
+)
+
+templ NotFound(stars int) {
+	@layouts.Base("Not found | Atlas", false) {
+		@navigation(true, stars)
+		<main class="mx-auto flex w-full max-w-6xl flex-1 items-center justify-center px-5 py-16 sm:px-8">
+			@empty.Empty() {
+				@empty.Header() {
+					@empty.Media(empty.MediaProps{Variant: empty.MediaVariantIcon}) {
+						@icon.MapPinOff()
+					}
+					@empty.Title() {
+						This place is off the map
+					}
+					@empty.Description() {
+						The page you are looking for does not exist or has moved. Search for a destination or head back to the globe.
+					}
+				}
+				@empty.Content() {
+					@button.Button(button.Props{Href: "/"}) {
+						Back to the globe
+					}
+				}
+			}
+		</main>
+	}
+}

@@ -33,7 +33,7 @@ func setupPlaceRoutes(mux *http.ServeMux, store *catalog.Store, githubStars func
 	mux.HandleFunc("GET /places/{slug}", func(w http.ResponseWriter, r *http.Request) {
 		place, err := store.PlaceBySlug(r.Context(), r.PathValue("slug"))
 		if errors.Is(err, catalog.ErrPlaceNotFound) {
-			http.NotFound(w, r)
+			renderNotFound(w, r)
 			return
 		}
 		if err != nil {

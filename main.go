@@ -43,6 +43,8 @@ func main() {
 		templ.Handler(pages.Home(githubStars(), places)).ServeHTTP(w, r)
 	})
 	mux.Handle("GET /offline", templ.Handler(pages.Offline()))
+	// The bare "/" pattern catches every path no other route matched.
+	mux.HandleFunc("/", renderNotFound)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, "ok")
@@ -74,6 +76,10 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func renderNotFound(w http.ResponseWriter, r *http.Request) {
+	templ.Handler(pages.NotFound(githubStars()), templ.WithStatus(http.StatusNotFound)).ServeHTTP(w, r)
 }
 
 func databasePath() string {
