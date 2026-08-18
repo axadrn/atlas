@@ -4,7 +4,7 @@ import "atlas/components"
 
 templ Base(title string, mapEnabled bool) {
 	<!DOCTYPE html>
-	<html lang="en" class="h-full">
+	<html lang="en">
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -40,7 +40,7 @@ templ Base(title string, mapEnabled bool) {
 			<script nonce={ templ.GetNonce(ctx) } src="/assets/js/place-search.js" defer></script>
 			<script nonce={ templ.GetNonce(ctx) } src="/assets/js/pwa.js" defer></script>
 		</head>
-		<body class="flex min-h-full flex-col">
+		<body class="flex min-h-dvh flex-col">
 			{ children... }
 			<footer class="mt-auto shrink-0">
 				<div class="mx-auto w-full max-w-6xl px-4 xl:px-6">
