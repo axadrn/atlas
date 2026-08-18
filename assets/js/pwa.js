@@ -1,6 +1,6 @@
 (function () {
   let installPrompt;
-  const installButton = document.querySelector("[data-pwa-install]");
+  const installButtons = document.querySelectorAll("[data-pwa-install]");
   const helpTrigger = document.querySelector("[data-pwa-help-trigger]");
 
   function installed() {
@@ -8,7 +8,9 @@
   }
 
   function updateButton() {
-    if (installButton) installButton.hidden = installed();
+    installButtons.forEach(function (button) {
+      button.hidden = installed();
+    });
   }
 
   if ("serviceWorker" in navigator) {
@@ -19,7 +21,7 @@
     });
   }
 
-  if (!installButton) return;
+  if (installButtons.length === 0) return;
 
   window.addEventListener("beforeinstallprompt", function (event) {
     event.preventDefault();
@@ -32,15 +34,17 @@
     updateButton();
   });
 
-  installButton.addEventListener("click", async function () {
-    if (!installPrompt) {
-      if (helpTrigger) helpTrigger.click();
-      return;
-    }
-    await installPrompt.prompt();
-    await installPrompt.userChoice;
-    installPrompt = undefined;
-    updateButton();
+  installButtons.forEach(function (button) {
+    button.addEventListener("click", async function () {
+      if (!installPrompt) {
+        if (helpTrigger) window.setTimeout(function () { helpTrigger.click(); }, 0);
+        return;
+      }
+      await installPrompt.prompt();
+      await installPrompt.userChoice;
+      installPrompt = undefined;
+      updateButton();
+    });
   });
 
   updateButton();

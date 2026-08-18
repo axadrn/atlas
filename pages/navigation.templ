@@ -1,10 +1,114 @@
 package pages
 
-import "atlas/layouts"
+import (
+	"fmt"
 
-templ navigation(showSearch bool) {
+	"atlas/components/button"
+	"atlas/components/dialog"
+	"atlas/components/icon"
+	"atlas/components/sheet"
+	"atlas/layouts"
+)
+
+func formatStars(stars int) string {
+	if stars >= 1000 {
+		return fmt.Sprintf("%.1fk", float64(stars)/1000)
+	}
+	return fmt.Sprintf("%d", stars)
+}
+
+templ githubMark() {
+	<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="shrink-0" aria-hidden="true">
+		<path d="M10.226 17.284c-2.965-.36-5.054-2.493-5.054-5.256 0-1.123.404-2.336 1.078-3.144-.292-.741-.247-2.314.09-2.965.898-.112 2.111.36 2.83 1.01.853-.269 1.752-.404 2.853-.404 1.1 0 1.999.135 2.807.382.696-.629 1.932-1.1 2.83-.988.315.606.36 2.179.067 2.942.72.854 1.101 2 1.101 3.167 0 2.763-2.089 4.852-5.098 5.234.763.494 1.28 1.572 1.28 2.807v2.336c0 .674.561 1.056 1.235.786 4.066-1.55 7.255-5.615 7.255-10.646C23.5 6.188 18.334 1 11.978 1 5.62 1 .5 6.188.5 12.545c0 4.986 3.167 9.12 7.435 10.669.606.225 1.19-.18 1.19-.786V20.63a2.9 2.9 0 0 1-1.078.224c-1.483 0-2.359-.808-2.987-2.313-.247-.607-.517-.966-1.034-1.033-.27-.023-.359-.135-.359-.27 0-.27.45-.471.898-.471.652 0 1.213.404 1.797 1.235.45.651.921.943 1.483.943.561 0 .92-.202 1.437-.719.382-.381.674-.718.944-.943"/>
+	</svg>
+}
+
+templ installAction(label string, class string, closeMobileMenu bool) {
+	{{
+		attributes := templ.Attributes{
+			"data-pwa-install": "",
+			"aria-label":       "Install Atlas",
+		}
+		if closeMobileMenu {
+			attributes["data-tui-dialog-close"] = true
+			attributes["data-tui-dialog-target"] = "mobile-navigation"
+		}
+	}}
+	@button.Button(button.Props{
+		Variant:    button.VariantGhost,
+		Class:      class,
+		Attributes: attributes,
+	}) {
+		@icon.Smartphone()
+		if label != "" {
+			<span>{ label }</span>
+		}
+	}
+}
+
+templ installDialog() {
+	@dialog.Dialog(dialog.Props{ID: "install-atlas"}) {
+		<button type="button" class="hidden" data-pwa-help-trigger { dialog.Trigger(ctx)... }>Install help</button>
+		@dialog.Content(dialog.ContentProps{Class: "sm:max-w-md"}) {
+			@dialog.Header() {
+				<a href="/" class="mb-1 w-fit font-heading text-xl font-bold tracking-tight">atlas<span class="text-primary">.</span></a>
+				@dialog.Title(dialog.TitleProps{Class: "font-heading text-xl"}) {
+					Install Atlas
+				}
+				@dialog.Description() {
+					Add Atlas to your Home Screen for a full-screen app experience and fast access.
+				}
+			}
+			<div class="grid gap-3">
+				<div class="rounded-xl border p-3">
+					<p class="font-medium">iPhone and iPad</p>
+					<p class="mt-1 text-sm text-muted-foreground">Tap Share, then choose Add to Home Screen. Current Safari and Chrome versions both support this.</p>
+				</div>
+				<div class="rounded-xl border p-3">
+					<p class="font-medium">Android and desktop</p>
+					<p class="mt-1 text-sm text-muted-foreground">Open the browser menu and choose Install app or Add to Home screen.</p>
+				</div>
+			</div>
+		}
+	}
+}
+
+templ mobileNavigation(stars int) {
+	@sheet.Sheet(sheet.Props{ID: "mobile-navigation"}) {
+		@button.Button(button.Props{
+			Variant:    button.VariantGhost,
+			Size:       button.SizeIcon,
+			Class:      "size-8 sm:hidden",
+			Attributes: sheet.Trigger(ctx),
+		}) {
+			@icon.Download()
+			<span class="sr-only">Install Atlas and open project links</span>
+		}
+		@sheet.Content(sheet.ContentProps{Side: sheet.SideRight}) {
+			@sheet.Header() {
+				@sheet.Title() { Get Atlas }
+				@sheet.Description() { Install the app or follow the project. }
+			}
+			<div class="grid gap-2 px-4">
+				@installAction("Install app", "w-full justify-start", true)
+				@button.Button(button.Props{
+					Variant: button.VariantGhost,
+					Href:    "https://github.com/axadrn/atlas",
+					Target:  "_blank",
+					Class:   "w-full justify-start",
+				}) {
+					@githubMark()
+					GitHub
+					<span class="ml-auto tabular-nums text-muted-foreground">{ formatStars(stars) }</span>
+				}
+			</div>
+		}
+	}
+}
+
+templ navigation(showSearch bool, stars int) {
 	<header class="sticky top-0 z-40 border-b bg-background/95 supports-backdrop-filter:bg-background/85 supports-backdrop-filter:backdrop-blur-lg">
-		<nav class="mx-auto flex h-18 w-full max-w-6xl items-center gap-5 px-6 sm:gap-10 sm:px-8" aria-label="Main navigation">
+		<nav class="mx-auto flex h-18 w-full max-w-6xl items-center gap-4 px-6 sm:gap-6 sm:px-8" aria-label="Main navigation">
 			<a href="/" class="shrink-0 font-heading text-xl font-bold tracking-tight">atlas<span class="text-primary">.</span></a>
 			if showSearch {
 				<div class="min-w-0 flex-1 sm:mx-auto sm:max-w-xl">
@@ -13,7 +117,26 @@ templ navigation(showSearch bool) {
 			} else {
 				<div class="flex-1"></div>
 			}
+			<div class="hidden shrink-0 items-center gap-1 sm:flex">
+				@installAction("Install", "w-20", false)
+				@button.Button(button.Props{
+					Variant: button.VariantGhost,
+					Href:    "https://github.com/axadrn/atlas",
+					Target:  "_blank",
+					Class:   "w-20",
+					Attributes: templ.Attributes{
+						"aria-label": "Atlas on GitHub",
+						"title":      "Atlas on GitHub",
+					},
+				}) {
+					@githubMark()
+					<span class="sr-only">GitHub stars:</span>
+					<span class="tabular-nums">{ formatStars(stars) }</span>
+				}
+			</div>
 			@layouts.ThemeSwitcher("shrink-0")
+			@mobileNavigation(stars)
 		</nav>
+		@installDialog()
 	</header>
 }

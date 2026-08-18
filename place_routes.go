@@ -13,7 +13,7 @@ import (
 	"atlas/pages"
 )
 
-func setupPlaceRoutes(mux *http.ServeMux, store *catalog.Store) {
+func setupPlaceRoutes(mux *http.ServeMux, store *catalog.Store, githubStars func() int) {
 	mux.HandleFunc("GET /fragments/place-search", func(w http.ResponseWriter, r *http.Request) {
 		query := strings.TrimSpace(r.URL.Query().Get("q"))
 		if utf8.RuneCountInString(query) > 100 {
@@ -59,6 +59,6 @@ func setupPlaceRoutes(mux *http.ServeMux, store *catalog.Store) {
 			http.Error(w, "Could not load this place.", http.StatusInternalServerError)
 			return
 		}
-		templ.Handler(pages.Place(place, ancestors, sources, children)).ServeHTTP(w, r)
+		templ.Handler(pages.Place(githubStars(), place, ancestors, sources, children)).ServeHTTP(w, r)
 	})
 }

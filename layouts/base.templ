@@ -16,7 +16,7 @@ templ Base(title string, mapEnabled bool) {
 			<title>{ title }</title>
 			<link rel="manifest" href="/manifest.webmanifest"/>
 			<link rel="icon" href="/assets/icons/favicon.svg" type="image/svg+xml"/>
-			<link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon-180-v1.png"/>
+			<link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon-180.png"/>
 			// Set the dark class before first paint so there is no theme flash.
 			<script nonce={ templ.GetNonce(ctx) }>
 				(function () {
@@ -40,8 +40,18 @@ templ Base(title string, mapEnabled bool) {
 			<script nonce={ templ.GetNonce(ctx) } src="/assets/js/place-search.js" defer></script>
 			<script nonce={ templ.GetNonce(ctx) } src="/assets/js/pwa.js" defer></script>
 		</head>
-		<body>
+		<body class="flex min-h-dvh flex-col">
 			{ children... }
+			<footer class="mt-auto shrink-0">
+				<div class="mx-auto w-full max-w-6xl px-4 xl:px-6">
+					<div class="flex items-center justify-between py-6">
+						<div class="w-full px-1 text-center text-xs leading-loose text-muted-foreground sm:text-sm">
+							Built by{ " " }<a href="https://x.com/axadrn" target="_blank" rel="noreferrer" class="font-medium underline underline-offset-4">Axel Adrian</a>.
+							The source code is available on{ " " }<a href="https://github.com/axadrn/atlas" target="_blank" rel="noreferrer" class="font-medium underline underline-offset-4">GitHub</a>.
+						</div>
+					</div>
+				</div>
+			</footer>
 		</body>
 	</html>
 }

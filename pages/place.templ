@@ -83,6 +83,12 @@ func placeTypeLabel(placeType catalog.PlaceType) string {
 	}
 }
 
+func showPlaceTypeBadge(placeType catalog.PlaceType) bool {
+	return placeType == catalog.PlaceTypeRegion ||
+		placeType == catalog.PlaceTypeIsland ||
+		placeType == catalog.PlaceTypeNeighborhood
+}
+
 func childSectionTitle(place catalog.PlaceSummary) string {
 	if place.Type == catalog.PlaceTypeCity || place.Type == catalog.PlaceTypeTown || place.Type == catalog.PlaceTypeLocality {
 		return "Neighborhoods"
@@ -105,10 +111,10 @@ func sourceDate(value string) string {
 	return retrievedAt.Format("2 Jan 2006")
 }
 
-templ Place(place catalog.PlaceSummary, ancestors []catalog.PlaceSummary, sources []catalog.SourceAttribution, children []catalog.PlaceSummary) {
+templ Place(stars int, place catalog.PlaceSummary, ancestors []catalog.PlaceSummary, sources []catalog.SourceAttribution, children []catalog.PlaceSummary) {
 	@layouts.Base(place.Name + " | Atlas", true) {
-		@navigation(true)
-		<main class="mx-auto min-h-[calc(100dvh-4.5rem)] w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-10">
+		@navigation(true, stars)
+		<main class="mx-auto w-full max-w-6xl flex-1 px-5 py-8 sm:px-8 sm:py-10">
 			<div class="grid gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.35fr)] lg:items-start">
 				<section class="min-w-0">
 					if len(ancestors) > 0 {
@@ -136,12 +142,13 @@ templ Place(place catalog.PlaceSummary, ancestors []catalog.PlaceSummary, source
 							}
 						}
 					}
-					<div class="mb-2 flex items-center gap-2">
-						<p class="text-sm font-medium uppercase tracking-[0.18em] text-primary">{ place.CountryCode }</p>
+					if showPlaceTypeBadge(place.Type) {
+						<div class="mb-2 flex items-center gap-2">
 						@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
 							{ placeTypeLabel(place.Type) }
 						}
-					</div>
+						</div>
+					}
 					<h1 class="min-w-0 break-words font-heading text-4xl font-bold tracking-tight sm:text-5xl xl:text-6xl">{ place.Name }</h1>
 					<p class="mt-4 max-w-xl text-lg text-muted-foreground">
 						A live place page built from sourced public data. Community signals, costs and practical nomad knowledge come next.

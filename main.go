@@ -33,7 +33,7 @@ func main() {
 	mux := http.NewServeMux()
 	setupAssetsRoutes(mux)
 	store := catalog.NewStore(db)
-	setupPlaceRoutes(mux, store)
+	setupPlaceRoutes(mux, store, githubStars)
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		places, err := store.MapPlaces(r.Context(), 150)
 		if err != nil {
@@ -83,9 +83,6 @@ func databasePath() string {
 	return "atlas.db"
 }
 
-// githubStars returns the repo star count, cached for 15 minutes, so the
-// GitHub API sees at most one request per deploy per window no matter how
-// much traffic comes in. Errors keep the last known value.
 var starsCache struct {
 	sync.Mutex
 	count   int

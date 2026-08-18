@@ -1,10 +1,10 @@
-const CACHE_NAME = "atlas-static-v2";
+const CACHE_NAME = "atlas-static-v3";
 const OFFLINE_URL = "/offline";
 const PRECACHE = [
   OFFLINE_URL,
   "/assets/css/output.css",
-  "/assets/icons/app-icon-192-v1.png",
-  "/assets/icons/app-icon-512-v1.png",
+  "/assets/icons/app-icon-192.png",
+  "/assets/icons/app-icon-512.png",
 ];
 
 self.addEventListener("install", function (event) {
