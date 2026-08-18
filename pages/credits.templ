@@ -1,0 +1,47 @@
+package pages
+
+import (
+	"atlas/components/badge"
+	"atlas/internal/catalog"
+	"atlas/layouts"
+)
+
+templ Credits(sources []catalog.SourceAttribution) {
+	@layouts.Base("Data sources | Atlas", false) {
+		@navigation(true)
+		<main class="mx-auto w-full max-w-3xl flex-1 px-5 py-10 sm:px-8">
+			<h1 class="font-heading text-3xl font-bold tracking-tight sm:text-4xl">Data sources</h1>
+			<p class="mt-3 max-w-xl text-muted-foreground">
+				Atlas builds on open data. These providers make it possible; every place page lists what each provider contributed there.
+			</p>
+			<div class="mt-8 grid gap-3">
+				for _, source := range sources {
+					<div class="flex items-start justify-between gap-3 rounded-xl border bg-card p-4">
+						<a class="font-medium underline-offset-4 hover:underline" href={ templ.SafeURL(source.HomepageURL) } target="_blank" rel="noreferrer">{ source.Name }</a>
+						if source.LicenseURL != "" {
+							<a href={ templ.SafeURL(source.LicenseURL) } target="_blank" rel="noreferrer">
+								@badge.Badge(badge.Props{Variant: badge.VariantOutline}) {
+									{ source.LicenseName }
+								}
+							</a>
+						} else {
+							@badge.Badge(badge.Props{Variant: badge.VariantOutline}) {
+								{ source.LicenseName }
+							}
+						}
+					</div>
+				}
+				<div class="rounded-xl border bg-card p-4">
+					<p class="font-medium">Maps</p>
+					<p class="mt-1 text-sm text-muted-foreground">
+						Map data © OpenStreetMap contributors. Vector tiles and styles delivered by OpenFreeMap.
+					</p>
+					<p class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+						<a class="underline underline-offset-2" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap license</a>
+						<a class="underline underline-offset-2" href="https://openfreemap.org/" target="_blank" rel="noreferrer">OpenFreeMap</a>
+					</p>
+				</div>
+			</div>
+		</main>
+	}
+}

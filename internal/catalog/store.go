@@ -31,7 +31,7 @@ func (s *Store) SearchPlaces(ctx context.Context, query string, limit int) ([]Pl
 
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, slug, name, place_type, parent_id, country_code,
-		       is_destination, latitude, longitude, population
+		       is_destination, latitude, longitude, population, curated_rank
 		FROM places
 		WHERE name LIKE ? ESCAPE '\' COLLATE NOCASE
 		ORDER BY
@@ -57,7 +57,7 @@ func (s *Store) MapPlaces(ctx context.Context, limit int) ([]PlaceSummary, error
 	limit = boundedLimit(limit, 150, 500)
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, slug, name, place_type, parent_id, country_code,
-		       is_destination, latitude, longitude, population
+		       is_destination, latitude, longitude, population, curated_rank
 		FROM places
 		WHERE is_destination = 1
 			AND latitude IS NOT NULL
@@ -78,7 +78,7 @@ func (s *Store) ChildrenByParent(ctx context.Context, parentID string, limit int
 	limit = boundedLimit(limit, 24, 100)
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, slug, name, place_type, parent_id, country_code,
-		       is_destination, latitude, longitude, population
+		       is_destination, latitude, longitude, population, curated_rank
 		FROM places
 		WHERE parent_id = ?
 		ORDER BY curated_rank IS NULL, curated_rank,
@@ -96,7 +96,7 @@ func (s *Store) ChildrenByParent(ctx context.Context, parentID string, limit int
 func (s *Store) placeByID(ctx context.Context, id string) (PlaceSummary, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id, slug, name, place_type, parent_id, country_code,
-		       is_destination, latitude, longitude, population
+		       is_destination, latitude, longitude, population, curated_rank
 		FROM places
 		WHERE id = ?
 	`, id)
@@ -113,7 +113,7 @@ func (s *Store) placeByID(ctx context.Context, id string) (PlaceSummary, error) 
 func (s *Store) PlaceBySlug(ctx context.Context, slug string) (PlaceSummary, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id, slug, name, place_type, parent_id, country_code,
-		       is_destination, latitude, longitude, population
+		       is_destination, latitude, longitude, population, curated_rank
 		FROM places
 		WHERE slug = ?
 	`, slug)
@@ -194,6 +194,32 @@ func (s *Store) timezonesForPlace(ctx context.Context, place PlaceSummary) ([]st
 		}
 	}
 	return nil, errors.New("place timezone hierarchy exceeds eight levels")
+}
+
+// Sources lists every provider for the credits page.
+func (s *Store) Sources(ctx context.Context) ([]SourceAttribution, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT name, homepage_url, license_name, COALESCE(license_url, '')
+		FROM sources
+		ORDER BY name COLLATE NOCASE
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("list sources: %w", err)
+	}
+	defer rows.Close()
+
+	sources := make([]SourceAttribution, 0, 4)
+	for rows.Next() {
+		var source SourceAttribution
+		if err := rows.Scan(&source.Name, &source.HomepageURL, &source.LicenseName, &source.LicenseURL); err != nil {
+			return nil, fmt.Errorf("scan source: %w", err)
+		}
+		sources = append(sources, source)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read sources: %w", err)
+	}
+	return sources, nil
 }
 
 func (s *Store) SourcesForPlace(ctx context.Context, placeID string) ([]SourceAttribution, error) {
@@ -331,7 +357,7 @@ func scanPlace(row rowScanner) (PlaceSummary, error) {
 	var parentID sql.NullString
 	var destination int
 	var latitude, longitude sql.NullFloat64
-	var population sql.NullInt64
+	var population, curatedRank sql.NullInt64
 	if err := row.Scan(
 		&place.ID,
 		&place.Slug,
@@ -343,6 +369,7 @@ func scanPlace(row rowScanner) (PlaceSummary, error) {
 		&latitude,
 		&longitude,
 		&population,
+		&curatedRank,
 	); err != nil {
 		return PlaceSummary{}, err
 	}
@@ -355,6 +382,9 @@ func scanPlace(row rowScanner) (PlaceSummary, error) {
 	}
 	if population.Valid {
 		place.Population = &population.Int64
+	}
+	if curatedRank.Valid {
+		place.CuratedRank = &curatedRank.Int64
 	}
 	return place, nil
 }

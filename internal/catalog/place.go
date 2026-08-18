@@ -33,6 +33,9 @@ type PlaceSummary struct {
 	Bounds      *Bounds      `json:"bounds,omitempty"`
 	Timezones   []string     `json:"timezones,omitempty"`
 	Population  *int64       `json:"population,omitempty"`
+	// CuratedRank orders destinations by nomad relevance, lower is better.
+	// NULL means unranked; see migration 0004.
+	CuratedRank *int64 `json:"curated_rank,omitempty"`
 }
 
 type SourceAttribution struct {

@@ -95,6 +95,26 @@ func childSectionDescription(place catalog.PlaceSummary) string {
 	return "Curated destinations in " + place.Name + "."
 }
 
+func curatedRankLabel(rank *int64) string {
+	return fmt.Sprintf("Top destination #%d", *rank)
+}
+
+// dataFreshness names the newest retrieval date across the place's sources,
+// so visitors see how old the sourced facts are. RFC 3339 strings compare
+// lexically, no parsing needed to find the newest.
+func dataFreshness(sources []catalog.SourceAttribution) string {
+	newest := ""
+	for _, source := range sources {
+		if source.RetrievedAt > newest {
+			newest = source.RetrievedAt
+		}
+	}
+	if newest == "" {
+		return ""
+	}
+	return "Sourced public data, updated " + sourceDate(newest)
+}
+
 func sourceDate(value string) string {
 	retrievedAt, err := time.Parse(time.RFC3339Nano, value)
 	if err != nil {
@@ -134,11 +154,18 @@ templ Place(place catalog.PlaceSummary, ancestors []catalog.PlaceSummary, source
 							}
 						}
 					}
-					if showPlaceTypeBadge(place.Type) {
+					if showPlaceTypeBadge(place.Type) || place.CuratedRank != nil {
 						<div class="mb-2 flex items-center gap-2">
-						@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
-							{ placeTypeLabel(place.Type) }
-						}
+							if place.CuratedRank != nil {
+								@badge.Badge() {
+									{ curatedRankLabel(place.CuratedRank) }
+								}
+							}
+							if showPlaceTypeBadge(place.Type) {
+								@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+									{ placeTypeLabel(place.Type) }
+								}
+							}
 						</div>
 					}
 					<h1 class="min-w-0 break-words font-heading text-4xl font-bold tracking-tight sm:text-5xl xl:text-6xl">{ place.Name }</h1>
@@ -225,6 +252,11 @@ templ Place(place catalog.PlaceSummary, ancestors []catalog.PlaceSummary, source
 								</div>
 								<p class="font-heading text-lg font-semibold">{ placeTimezone(place) }</p>
 							</div>
+						}
+						if freshness := dataFreshness(sources); freshness != "" {
+							@card.Footer(card.FooterProps{Class: "border-t py-3 text-xs text-muted-foreground"}) {
+								{ freshness }
+							}
 						}
 					}
 				</section>
