@@ -5,13 +5,28 @@ import (
 	"atlas/utils"
 )
 
-// ThemeSwitcher is a trimmed port of the shadcn-templ docs switcher: a ghost
-// icon button with the half shaded globe that cycles light and dark via
-// localStorage. The initial class is set by the inline script in Base so
-// there is no flash of the wrong theme.
-templ ThemeSwitcher(class string) {
+templ themeSwitcherIcon() {
+	<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4.5">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+		<path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"></path>
+		<path d="M12 3l0 18"></path>
+		<path d="M12 9l4.65 -4.65"></path>
+		<path d="M12 14.3l7.37 -7.37"></path>
+		<path d="M12 19.6l8.85 -8.85"></path>
+	</svg>
+}
+
+// ThemeSwitcher is a trimmed port of the shadcn-templ docs switcher: the half
+// shaded globe that cycles light and dark via localStorage. Without a label it
+// renders as a ghost icon button, with one as a labeled menu row. The initial
+// class is set by the inline script in Base so there is no flash of the wrong
+// theme. The guard keeps multiple instances from registering the document
+// click handler twice.
+templ ThemeSwitcher(class string, label string) {
 	<script nonce={ templ.GetNonce(ctx) }>
 		(function () {
+			if (window.atlasThemeReady) return;
+			window.atlasThemeReady = true;
 			function apply() {
 				const pref = localStorage.getItem("theme") || "system";
 				const dark = pref === "system"
@@ -30,22 +45,28 @@ templ ThemeSwitcher(class string) {
 			});
 		})();
 	</script>
-	@button.Button(button.Props{
-		Size:    button.SizeIcon,
-		Variant: button.VariantGhost,
-		Class:   utils.CN("size-8", class),
-		Attributes: templ.Attributes{
-			"data-theme-switcher": "true",
-		},
-	}) {
-		<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4.5">
-			<path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-			<path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"></path>
-			<path d="M12 3l0 18"></path>
-			<path d="M12 9l4.65 -4.65"></path>
-			<path d="M12 14.3l7.37 -7.37"></path>
-			<path d="M12 19.6l8.85 -8.85"></path>
-		</svg>
-		<span class="sr-only">Toggle theme</span>
+	if label == "" {
+		@button.Button(button.Props{
+			Size:    button.SizeIcon,
+			Variant: button.VariantGhost,
+			Class:   utils.CN("size-8", class),
+			Attributes: templ.Attributes{
+				"data-theme-switcher": "true",
+			},
+		}) {
+			@themeSwitcherIcon()
+			<span class="sr-only">Toggle theme</span>
+		}
+	} else {
+		@button.Button(button.Props{
+			Variant: button.VariantGhost,
+			Class:   class,
+			Attributes: templ.Attributes{
+				"data-theme-switcher": "true",
+			},
+		}) {
+			@themeSwitcherIcon()
+			<span>{ label }</span>
+		}
 	}
 }

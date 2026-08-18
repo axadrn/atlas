@@ -23,7 +23,7 @@ templ githubMark() {
 	</svg>
 }
 
-templ installAction(label string, class string, closeMobileMenu bool) {
+templ installAction(label string, variant button.Variant, class string, closeMobileMenu bool) {
 	{{
 		attributes := templ.Attributes{
 			"data-pwa-install": "",
@@ -35,7 +35,7 @@ templ installAction(label string, class string, closeMobileMenu bool) {
 		}
 	}}
 	@button.Button(button.Props{
-		Variant:    button.VariantGhost,
+		Variant:    variant,
 		Class:      class,
 		Attributes: attributes,
 	}) {
@@ -81,16 +81,20 @@ templ mobileNavigation(stars int) {
 			Class:      "size-8 sm:hidden",
 			Attributes: sheet.Trigger(ctx),
 		}) {
-			@icon.Download()
-			<span class="sr-only">Install Atlas and open project links</span>
+			@icon.Menu()
+			<span class="sr-only">Open menu</span>
 		}
 		@sheet.Content(sheet.ContentProps{Side: sheet.SideRight}) {
 			@sheet.Header() {
-				@sheet.Title() { Get Atlas }
-				@sheet.Description() { Install the app or follow the project. }
+				@sheet.Title() {
+					<a href="/" class="font-heading text-xl font-bold tracking-tight">atlas<span class="text-primary">.</span></a>
+				}
+				@sheet.Description() {
+					The open source travel companion for digital nomads.
+				}
 			}
-			<div class="grid gap-2 px-4">
-				@installAction("Install app", "w-full justify-start", true)
+			<nav class="grid gap-1 px-4" aria-label="Mobile navigation">
+				@installAction("Install app", button.VariantGhost, "w-full justify-start", true)
 				@button.Button(button.Props{
 					Variant: button.VariantGhost,
 					Href:    "https://github.com/axadrn/atlas",
@@ -98,17 +102,20 @@ templ mobileNavigation(stars int) {
 					Class:   "w-full justify-start",
 				}) {
 					@githubMark()
-					GitHub
-					<span class="ml-auto tabular-nums text-muted-foreground">{ formatStars(stars) }</span>
+					GitHub ({ formatStars(stars) })
 				}
-			</div>
+				@layouts.ThemeSwitcher("w-full justify-start", "Toggle theme")
+			</nav>
+			@sheet.Footer() {
+				<p class="text-xs text-muted-foreground">Built by Axel Adrian. Free and open source.</p>
+			}
 		}
 	}
 }
 
 templ navigation(showSearch bool, stars int) {
 	<header class="sticky top-0 z-40 border-b bg-background/95 supports-backdrop-filter:bg-background/85 supports-backdrop-filter:backdrop-blur-lg">
-		<nav class="mx-auto flex h-18 w-full max-w-6xl items-center gap-4 px-6 sm:gap-6 sm:px-8" aria-label="Main navigation">
+		<nav class="mx-auto flex h-20 w-full max-w-6xl items-center gap-3 px-6 sm:gap-5 sm:px-8" aria-label="Main navigation">
 			<a href="/" class="shrink-0 font-heading text-xl font-bold tracking-tight">atlas<span class="text-primary">.</span></a>
 			if showSearch {
 				<div class="min-w-0 flex-1 sm:mx-auto sm:max-w-xl">
@@ -117,13 +124,11 @@ templ navigation(showSearch bool, stars int) {
 			} else {
 				<div class="flex-1"></div>
 			}
-			<div class="hidden shrink-0 items-center gap-1 sm:flex">
-				@installAction("Install", "w-20", false)
+			<div class="hidden shrink-0 items-center gap-2 sm:flex">
 				@button.Button(button.Props{
 					Variant: button.VariantGhost,
 					Href:    "https://github.com/axadrn/atlas",
 					Target:  "_blank",
-					Class:   "w-20",
 					Attributes: templ.Attributes{
 						"aria-label": "Atlas on GitHub",
 						"title":      "Atlas on GitHub",
@@ -133,8 +138,9 @@ templ navigation(showSearch bool, stars int) {
 					<span class="sr-only">GitHub stars:</span>
 					<span class="tabular-nums">{ formatStars(stars) }</span>
 				}
+				@installAction("Install", button.VariantSecondary, "", false)
+				@layouts.ThemeSwitcher("shrink-0", "")
 			</div>
-			@layouts.ThemeSwitcher("shrink-0")
 			@mobileNavigation(stars)
 		</nav>
 		@installDialog()

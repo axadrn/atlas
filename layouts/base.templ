@@ -40,17 +40,13 @@ templ Base(title string, mapEnabled bool) {
 			<script nonce={ templ.GetNonce(ctx) } src="/assets/js/place-search.js" defer></script>
 			<script nonce={ templ.GetNonce(ctx) } src="/assets/js/pwa.js" defer></script>
 		</head>
-		<body class="grid min-h-dvh grid-rows-[auto_minmax(0,1fr)_auto]">
+		<body class="flex min-h-dvh flex-col">
 			{ children... }
-			<footer>
-				<div class="mx-auto w-full max-w-6xl px-4 xl:px-6">
-					<div class="flex items-center justify-between py-2">
-						<div class="w-full px-1 text-center text-xs leading-loose text-muted-foreground sm:text-sm">
-							Built by{ " " }<a href="https://x.com/axadrn" target="_blank" rel="noreferrer" class="font-medium underline underline-offset-4">Axel Adrian</a>.
-							The source code is available on{ " " }<a href="https://github.com/axadrn/atlas" target="_blank" rel="noreferrer" class="font-medium underline underline-offset-4">GitHub</a>.
-						</div>
-					</div>
-				</div>
+			<footer class="mt-auto flex h-10 shrink-0 items-center justify-center px-4 text-center text-xs text-muted-foreground sm:text-sm">
+				<p>
+					Built by{ " " }<a href="https://x.com/axadrn" target="_blank" rel="noreferrer" class="font-medium underline underline-offset-4">Axel Adrian</a>.
+					The source code is available on{ " " }<a href="https://github.com/axadrn/atlas" target="_blank" rel="noreferrer" class="font-medium underline underline-offset-4">GitHub</a>.
+				</p>
 			</footer>
 		</body>
 	</html>
