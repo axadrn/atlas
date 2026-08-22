@@ -47,4 +47,11 @@ jobs:
       # the deploy token, so the whole URL is the secret; see docs/deploy.md.
       - name: Trigger Dokploy deploy
         if: github.event_name == 'push'
-        run: curl -fsS --max-time 30 "${{ secrets.DOKPLOY_WEBHOOK_URL }}"
+        env:
+          DOKPLOY_WEBHOOK_URL: ${{ secrets.DOKPLOY_WEBHOOK_URL }}
+        run: |
+          if [ -z "$DOKPLOY_WEBHOOK_URL" ]; then
+            echo "DOKPLOY_WEBHOOK_URL is not configured; skipping deployment."
+            exit 0
+          fi
+          curl -fsS --max-time 30 "$DOKPLOY_WEBHOOK_URL"
