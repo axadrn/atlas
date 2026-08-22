@@ -72,12 +72,27 @@ Place geography and product selection are separate:
   `neighborhood`;
 - `parent_id` creates the useful hierarchy, such as country to city to
   neighborhood;
-- `is_destination` controls whether Atlas promotes a place on maps and lists.
+- `is_destination` is the vetting flag: imported rows merely exist, vetted
+  rows are the ones Atlas promotes on maps and lists;
+- `curated_rank` orders the promoted destinations editorially until
+  community-derived scores replace it. One ranking signal at a time, never
+  several in parallel.
 
 The hierarchy is intentionally sparse. Atlas stores useful destinations and
 neighborhoods, not every administrative division in the world. Missing levels
 are valid, so a city can link directly to its country. A neighborhood inherits
 its time zone from the nearest ancestor unless it has an explicit override.
+
+The hierarchy stays boring on purpose: no closure table, no materialized
+path. Ancestor walks are a handful of primary key lookups, country-wide
+queries use `country_code`, and a recursive CTE covers anything deeper if
+it ever comes up.
+
+Provider facts have exactly one correction path: fix upstream and
+re-import, or ship a small curation migration. There is no field-level
+override table. Community knowledge lives in its own tables with its own
+provenance and never edits provider columns, so the two worlds cannot
+corrupt each other.
 
 Names and slugs are display values, not identity. Localization, aliases,
 boundaries and merge support are added when the product needs them. They are
