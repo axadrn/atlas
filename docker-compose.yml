@@ -1,0 +1,13 @@
+# Production runtime. Dokploy deploys this Compose file and routes the
+# configured domain to the atlas service on port 8090.
+services:
+  atlas:
+    image: ghcr.io/axadrn/atlas:latest
+    restart: unless-stopped
+    expose:
+      - "8090"
+    volumes:
+      - atlas_data:/data
+
+volumes:
+  atlas_data:

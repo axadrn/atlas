@@ -42,3 +42,9 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Tells Dokploy to pull the fresh image and restart. The URL contains
+      # the deploy token, so the whole URL is the secret; see docs/deploy.md.
+      - name: Trigger Dokploy deploy
+        if: github.event_name == 'push'
+        run: curl -fsS --max-time 30 "${{ secrets.DOKPLOY_WEBHOOK_URL }}"
