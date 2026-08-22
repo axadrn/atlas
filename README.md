@@ -17,6 +17,8 @@ Goal, said out loud: become the biggest digital nomad platform in the world.
 
 ## Product foundations
 
+- [Vision](docs/vision.md): where Atlas is going, what stays free and how the
+  business can support it
 - [Product](docs/product.md): what Atlas is, why it should exist and what the
   first useful version contains
 - [Data](docs/data.md): what belongs in the database, what stays in Git and how
